@@ -1,0 +1,749 @@
+# ===========================================================
+# Generation of Cristiano healthy nucleosome atlas
+# ===========================================================
+
+# Some R code was used to generate unix commands to execute all the necessary programs considering each chromosome size
+# and centromere position. This code was the following:
+
+library(data.table)
+
+centro <- fread("../atlas/centromere-region.txt",data.table=F)
+chr.size <- fread("../atlas/pos_chromosomes.tsv",data.table=F)
+
+# coverage & starts/ends
+cat("./coverage -verbose -withstartend -infolder /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019/ -fileregexp EE -outfolder cris-healthy/")
+
+# smooth raw coverage
+for (i in 1:23)
+  cat(paste0("./sgfilter -sx 0.0 -i cris-healthy/chr",centro$chr[i],"_coverage.tsv -o cris-healthy/smooth-chr",centro$chr[i],"_cover_no_norm.txt -m 4 -nl 100 -nr 100 &\n"))
+for (i in c(1:12,16:20,23))
+  cat("sed -n '2,",centro$centro_start[i]+1," p' cris-healthy/smooth-chr",centro$chr[i],"_cover_no_norm.txt > cris-healthy/smooth-chr",centro$chr[i],"_cover_no_norm_before.txt &\n",sep="")
+options(digits=12)
+for (i in 1:23)
+  cat("sed -n '",centro$centro_end[i]+1,",",chr.size[i,3]+1," p' cris-healthy/smooth-chr",centro$chr[i],"_cover_no_norm.txt > cris-healthy/smooth-chr",
+      centro$chr[i],"_cover_no_norm_after.txt &\n",sep="")
+
+# WPS
+for (i in c(1:12,16:20,23))
+  cat(paste0("./wps-score chr",centro$chr[i]," 1 ",centro$centro_start[i]," /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr",
+             centro$chr[i],"-before.txt &\n"))
+for (i in 1:23)
+  cat(paste0("./wps-score chr",centro$chr[i]," ",centro$centro_end[i]," ", chr.size[i,3]," /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr",
+             centro$chr[i],"-after.txt &\n"))
+for (i in c(1:12,16:20,23))
+  cat(paste0("./sgfilter -i cris-healthy/wps-chr",centro$chr[i],"-before.txt -o cris-healthy/smooth-wps-chr",centro$chr[i],"-before.txt -nl 50 -nr 50 -m 4 &\n"))
+for (i in 1:23)
+  cat(paste0("./sgfilter -i cris-healthy/wps-chr",centro$chr[i],"-after.txt -o cris-healthy/smooth-wps-chr",centro$chr[i],"-after.txt -nl 50 -nr 50 -m 4 &\n"))
+
+# normalize & smooth coverage
+for (i in c(1:12,16:20,23))
+  cat(paste0("./normalize 1 ",centro$centro_start[i]," 601 cris-healthy/chr",centro$chr[i],
+             "_coverage.tsv > cris-healthy/norm-chr",centro$chr[i],"-cover-before.txt &\n"))
+for (i in 1:23)
+  cat(paste0("./normalize ",centro$centro_end[i]," ",chr.size[i,3]," 601 cris-healthy/chr",centro$chr[i],
+             "_coverage.tsv > cris-healthy/norm-chr",centro$chr[i],"-cover-after.txt &\n"))
+for (i in c(1:12,16:20,23))
+  cat(paste0("./sgfilter -i cris-healthy/norm-chr",centro$chr[i],"-cover-before.txt -o cris-healthy/smooth-chr",centro$chr[i],
+             "-cover-before.txt -nl 100 -nr 100 -m 4 &\n"))
+for (i in 1:23)
+  cat(paste0("./sgfilter -i cris-healthy/norm-chr",centro$chr[i],"-cover-after.txt -o cris-healthy/smooth-chr",centro$chr[i],
+             "-cover-after.txt -nl 100 -nr 100 -m 4 &\n"))
+
+# normalize & smooth starts/ends
+for (i in c(1:12,16:20,23))
+  cat(paste0("./normalize 1 ",centro$centro_start[i]," 601 cris-healthy/chr",centro$chr[i],
+             "_starts.tsv > cris-healthy/norm-chr",centro$chr[i],"-starts-before.txt &\n"))
+for (i in 1:23)
+  cat(paste0("./normalize ",centro$centro_end[i]," ",chr.size[i,3]," 601 cris-healthy/chr",centro$chr[i],
+             "_starts.tsv > cris-healthy/norm-chr",centro$chr[i],"-starts-after.txt &\n"))
+for (i in c(1:12,16:20,23))
+  cat(paste0("./normalize 1 ",centro$centro_start[i]," 601 cris-healthy/chr",centro$chr[i],
+             "_ends.tsv > cris-healthy/norm-chr",centro$chr[i],"-ends-before.txt &\n"))
+for (i in 1:23)
+  cat(paste0("./normalize ",centro$centro_end[i]," ",chr.size[i,3]," 601 cris-healthy/chr",centro$chr[i],
+             "_ends.tsv > cris-healthy/norm-chr",centro$chr[i],"-ends-after.txt &\n"))
+for (i in c(1:12,16:20,23))
+  cat(paste0("./sgfilter -i cris-healthy/norm-chr",centro$chr[i],"-starts-before.txt -o cris-healthy/smooth-chr",centro$chr[i],
+             "-starts-before.txt -nl 200 -nr 200 -m 4 &\n"))
+for (i in 1:23)
+  cat(paste0("./sgfilter -i cris-healthy/norm-chr",centro$chr[i],"-starts-after.txt -o cris-healthy/smooth-chr",centro$chr[i],
+             "-starts-after.txt -nl 200 -nr 200 -m 4 &\n"))
+for (i in c(1:12,16:20,23))
+  cat(paste0("./sgfilter -i cris-healthy/norm-chr",centro$chr[i],"-ends-before.txt -o cris-healthy/smooth-chr",centro$chr[i],
+             "-ends-before.txt -nl 200 -nr 200 -m 4 &\n"))
+for (i in 1:23)
+  cat(paste0("./sgfilter -i cris-healthy/norm-chr",centro$chr[i],"-ends-after.txt -o cris-healthy/smooth-chr",centro$chr[i],
+             "-ends-after.txt -nl 200 -nr 200 -m 4 &\n"))
+
+# WPS peak detection
+for (i in c(1:12,16:20,23))
+  cat(paste0("./findChromatosomes -verbose -sc cris-healthy/smooth-chr",centro$chr[i],
+             "-cover-before.txt -sw cris-healthy/smooth-wps-chr",centro$chr[i],
+             "-before.txt -ss cris-healthy/smooth-chr",centro$chr[i],"-starts-before.txt -se cris-healthy/smooth-chr",
+             centro$chr[i],"-ends-before.txt -basename cris-healthy-indiv-selections/chr",centro$chr[i],"_before -rsc cris-healthy/smooth-chr",
+             centro$chr[i],"_cover_no_norm_before.txt &\n"))
+for (i in 1:23)
+  cat(paste0("./findChromatosomes -verbose -sc cris-healthy/smooth-chr",centro$chr[i],
+             "-cover-after.txt -sw cris-healthy/smooth-wps-chr",centro$chr[i],"-after.txt -ss cris-healthy/smooth-chr",
+             centro$chr[i],"-starts-after.txt -se cris-healthy/smooth-chr",centro$chr[i],
+             "-ends-after.txt -basename cris-healthy-indiv-selections/chr",centro$chr[i],"_after -rsc cris-healthy/smooth-chr",
+             centro$chr[i],"_cover_no_norm_after.txt &\n"))
+
+# -----------------------------------------------------------------------------------------
+
+# The resulting unix commands were the following:
+
+# chromosome coverage, starts/ends
+./coverage -verbose -withstartend -infolder /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019/ -fileregexp EE -outfolder cris-healthy/
+
+# smooth coverage
+./sgfilter -sx 0.0 -i cris-healthy/chr1_coverage.tsv -o cris-healthy/smooth-chr1_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr2_coverage.tsv -o cris-healthy/smooth-chr2_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr3_coverage.tsv -o cris-healthy/smooth-chr3_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr4_coverage.tsv -o cris-healthy/smooth-chr4_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr5_coverage.tsv -o cris-healthy/smooth-chr5_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr6_coverage.tsv -o cris-healthy/smooth-chr6_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr7_coverage.tsv -o cris-healthy/smooth-chr7_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr8_coverage.tsv -o cris-healthy/smooth-chr8_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr9_coverage.tsv -o cris-healthy/smooth-chr9_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr10_coverage.tsv -o cris-healthy/smooth-chr10_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr11_coverage.tsv -o cris-healthy/smooth-chr11_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr12_coverage.tsv -o cris-healthy/smooth-chr12_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr13_coverage.tsv -o cris-healthy/smooth-chr13_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr14_coverage.tsv -o cris-healthy/smooth-chr14_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr15_coverage.tsv -o cris-healthy/smooth-chr15_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr16_coverage.tsv -o cris-healthy/smooth-chr16_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr17_coverage.tsv -o cris-healthy/smooth-chr17_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr18_coverage.tsv -o cris-healthy/smooth-chr18_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr19_coverage.tsv -o cris-healthy/smooth-chr19_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr20_coverage.tsv -o cris-healthy/smooth-chr20_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr21_coverage.tsv -o cris-healthy/smooth-chr21_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chr22_coverage.tsv -o cris-healthy/smooth-chr22_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+./sgfilter -sx 0.0 -i cris-healthy/chrX_coverage.tsv -o cris-healthy/smooth-chrX_cover_no_norm.txt -m 4 -nl 100 -nr 100 &
+sed -n '2,125100001 p' cris-healthy/smooth-chr1_cover_no_norm.txt > cris-healthy/smooth-chr1_cover_no_norm_before.txt &
+sed -n '2,93900001 p' cris-healthy/smooth-chr2_cover_no_norm.txt > cris-healthy/smooth-chr2_cover_no_norm_before.txt &
+sed -n '2,90900001 p' cris-healthy/smooth-chr3_cover_no_norm.txt > cris-healthy/smooth-chr3_cover_no_norm_before.txt &
+sed -n '2,48200001 p' cris-healthy/smooth-chr4_cover_no_norm.txt > cris-healthy/smooth-chr4_cover_no_norm_before.txt &
+sed -n '2,46100001 p' cris-healthy/smooth-chr5_cover_no_norm.txt > cris-healthy/smooth-chr5_cover_no_norm_before.txt &
+sed -n '2,58400001 p' cris-healthy/smooth-chr6_cover_no_norm.txt > cris-healthy/smooth-chr6_cover_no_norm_before.txt &
+sed -n '2,58100001 p' cris-healthy/smooth-chr7_cover_no_norm.txt > cris-healthy/smooth-chr7_cover_no_norm_before.txt &
+sed -n '2,43900001 p' cris-healthy/smooth-chr8_cover_no_norm.txt > cris-healthy/smooth-chr8_cover_no_norm_before.txt &
+sed -n '2,38500001 p' cris-healthy/smooth-chr9_cover_no_norm.txt > cris-healthy/smooth-chr9_cover_no_norm_before.txt &
+sed -n '2,38500001 p' cris-healthy/smooth-chr10_cover_no_norm.txt > cris-healthy/smooth-chr10_cover_no_norm_before.txt &
+sed -n '2,50700001 p' cris-healthy/smooth-chr11_cover_no_norm.txt > cris-healthy/smooth-chr11_cover_no_norm_before.txt &
+sed -n '2,34600001 p' cris-healthy/smooth-chr12_cover_no_norm.txt > cris-healthy/smooth-chr12_cover_no_norm_before.txt &
+sed -n '2,35300001 p' cris-healthy/smooth-chr16_cover_no_norm.txt > cris-healthy/smooth-chr16_cover_no_norm_before.txt &
+sed -n '2,22700001 p' cris-healthy/smooth-chr17_cover_no_norm.txt > cris-healthy/smooth-chr17_cover_no_norm_before.txt &
+sed -n '2,15300001 p' cris-healthy/smooth-chr18_cover_no_norm.txt > cris-healthy/smooth-chr18_cover_no_norm_before.txt &
+sed -n '2,24200001 p' cris-healthy/smooth-chr19_cover_no_norm.txt > cris-healthy/smooth-chr19_cover_no_norm_before.txt &
+sed -n '2,26200001 p' cris-healthy/smooth-chr20_cover_no_norm.txt > cris-healthy/smooth-chr20_cover_no_norm_before.txt &
+sed -n '2,58100001 p' cris-healthy/smooth-chrX_cover_no_norm.txt > cris-healthy/smooth-chrX_cover_no_norm_before.txt &
+sed -n '143200001,248956423 p' cris-healthy/smooth-chr1_cover_no_norm.txt > cris-healthy/smooth-chr1_cover_no_norm_after.txt &
+sed -n '96000001,242193530 p' cris-healthy/smooth-chr2_cover_no_norm.txt > cris-healthy/smooth-chr2_cover_no_norm_after.txt &
+sed -n '94000001,198295560 p' cris-healthy/smooth-chr3_cover_no_norm.txt > cris-healthy/smooth-chr3_cover_no_norm_after.txt &
+sed -n '51800001,190214556 p' cris-healthy/smooth-chr4_cover_no_norm.txt > cris-healthy/smooth-chr4_cover_no_norm_after.txt &
+sed -n '51400001,181538260 p' cris-healthy/smooth-chr5_cover_no_norm.txt > cris-healthy/smooth-chr5_cover_no_norm_after.txt &
+sed -n '60300001,170805980 p' cris-healthy/smooth-chr6_cover_no_norm.txt > cris-healthy/smooth-chr6_cover_no_norm_after.txt &
+sed -n '61000001,159345974 p' cris-healthy/smooth-chr7_cover_no_norm.txt > cris-healthy/smooth-chr7_cover_no_norm_after.txt &
+sed -n '46100001,145138637 p' cris-healthy/smooth-chr8_cover_no_norm.txt > cris-healthy/smooth-chr8_cover_no_norm_after.txt &
+sed -n '69000001,138394718 p' cris-healthy/smooth-chr9_cover_no_norm.txt > cris-healthy/smooth-chr9_cover_no_norm_after.txt &
+sed -n '42200001,133797423 p' cris-healthy/smooth-chr10_cover_no_norm.txt > cris-healthy/smooth-chr10_cover_no_norm_after.txt &
+sed -n '54700001,135086623 p' cris-healthy/smooth-chr11_cover_no_norm.txt > cris-healthy/smooth-chr11_cover_no_norm_after.txt &
+sed -n '37400001,133275310 p' cris-healthy/smooth-chr12_cover_no_norm.txt > cris-healthy/smooth-chr12_cover_no_norm_after.txt &
+sed -n '16600001,114364329 p' cris-healthy/smooth-chr13_cover_no_norm.txt > cris-healthy/smooth-chr13_cover_no_norm_after.txt &
+sed -n '20200001,107043719 p' cris-healthy/smooth-chr14_cover_no_norm.txt > cris-healthy/smooth-chr14_cover_no_norm_after.txt &
+sed -n '23500001,101991190 p' cris-healthy/smooth-chr15_cover_no_norm.txt > cris-healthy/smooth-chr15_cover_no_norm_after.txt &
+sed -n '46500001,90338346 p' cris-healthy/smooth-chr16_cover_no_norm.txt > cris-healthy/smooth-chr16_cover_no_norm_after.txt &
+sed -n '27000001,83257442 p' cris-healthy/smooth-chr17_cover_no_norm.txt > cris-healthy/smooth-chr17_cover_no_norm_after.txt &
+sed -n '21200001,80373286 p' cris-healthy/smooth-chr18_cover_no_norm.txt > cris-healthy/smooth-chr18_cover_no_norm_after.txt &
+sed -n '27500001,58617617 p' cris-healthy/smooth-chr19_cover_no_norm.txt > cris-healthy/smooth-chr19_cover_no_norm_after.txt &
+sed -n '28800001,64444168 p' cris-healthy/smooth-chr20_cover_no_norm.txt > cris-healthy/smooth-chr20_cover_no_norm_after.txt &
+sed -n '13100001,46709984 p' cris-healthy/smooth-chr21_cover_no_norm.txt > cris-healthy/smooth-chr21_cover_no_norm_after.txt &
+sed -n '15500001,50818469 p' cris-healthy/smooth-chr22_cover_no_norm.txt > cris-healthy/smooth-chr22_cover_no_norm_after.txt &
+sed -n '63800001,156040896 p' cris-healthy/smooth-chrX_cover_no_norm.txt > cris-healthy/smooth-chrX_cover_no_norm_after.txt &
+
+# WPS
+./wps-score chr1 1 125100000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr1-before.txt &
+./wps-score chr2 1 93900000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr2-before.txt &
+./wps-score chr3 1 90900000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr3-before.txt &
+./wps-score chr4 1 48200000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr4-before.txt &
+./wps-score chr5 1 46100000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr5-before.txt &
+./wps-score chr6 1 58400000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr6-before.txt &
+./wps-score chr7 1 58100000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr7-before.txt &
+./wps-score chr8 1 43900000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr8-before.txt &
+./wps-score chr9 1 38500000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr9-before.txt &
+./wps-score chr10 1 38500000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr10-before.txt &
+./wps-score chr11 1 50700000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr11-before.txt &
+./wps-score chr12 1 34600000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr12-before.txt &
+./wps-score chr16 1 35300000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr16-before.txt &
+./wps-score chr17 1 22700000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr17-before.txt &
+./wps-score chr18 1 15300000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr18-before.txt &
+./wps-score chr19 1 24200000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr19-before.txt &
+./wps-score chr20 1 26200000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr20-before.txt &
+./wps-score chrX 1 58100000 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chrX-before.txt &
+./wps-score chr1 143200000 248956422 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr1-after.txt &
+./wps-score chr2 96000000 242193529 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr2-after.txt &
+./wps-score chr3 94000000 198295559 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr3-after.txt &
+./wps-score chr4 51800000 190214555 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr4-after.txt &
+./wps-score chr5 51400000 181538259 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr5-after.txt &
+./wps-score chr6 60300000 170805979 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr6-after.txt &
+./wps-score chr7 61000000 159345973 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr7-after.txt &
+./wps-score chr8 46100000 145138636 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr8-after.txt &
+./wps-score chr9 69000000 138394717 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr9-after.txt &
+./wps-score chr10 42200000 133797422 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr10-after.txt &
+./wps-score chr11 54700000 135086622 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr11-after.txt &
+./wps-score chr12 37400000 133275309 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr12-after.txt &
+./wps-score chr13 16600000 114364328 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr13-after.txt &
+./wps-score chr14 20200000 107043718 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr14-after.txt &
+./wps-score chr15 23500000 101991189 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr15-after.txt &
+./wps-score chr16 46500000 90338345 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr16-after.txt &
+./wps-score chr17 27000000 83257441 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr17-after.txt &
+./wps-score chr18 21200000 80373285 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr18-after.txt &
+./wps-score chr19 27500000 58617616 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr19-after.txt &
+./wps-score chr20 28800000 64444167 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr20-after.txt &
+./wps-score chr21 13100000 46709983 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr21-after.txt &
+./wps-score chr22 15500000 50818468 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chr22-after.txt &
+./wps-score chrX 63800000 156040895 /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019 EE > cris-healthy/wps-chrX-after.txt &
+./sgfilter -i cris-healthy/wps-chr1-before.txt -o cris-healthy/smooth-wps-chr1-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr2-before.txt -o cris-healthy/smooth-wps-chr2-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr3-before.txt -o cris-healthy/smooth-wps-chr3-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr4-before.txt -o cris-healthy/smooth-wps-chr4-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr5-before.txt -o cris-healthy/smooth-wps-chr5-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr6-before.txt -o cris-healthy/smooth-wps-chr6-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr7-before.txt -o cris-healthy/smooth-wps-chr7-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr8-before.txt -o cris-healthy/smooth-wps-chr8-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr9-before.txt -o cris-healthy/smooth-wps-chr9-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr10-before.txt -o cris-healthy/smooth-wps-chr10-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr11-before.txt -o cris-healthy/smooth-wps-chr11-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr12-before.txt -o cris-healthy/smooth-wps-chr12-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr16-before.txt -o cris-healthy/smooth-wps-chr16-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr17-before.txt -o cris-healthy/smooth-wps-chr17-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr18-before.txt -o cris-healthy/smooth-wps-chr18-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr19-before.txt -o cris-healthy/smooth-wps-chr19-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr20-before.txt -o cris-healthy/smooth-wps-chr20-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chrX-before.txt -o cris-healthy/smooth-wps-chrX-before.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr1-after.txt -o cris-healthy/smooth-wps-chr1-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr2-after.txt -o cris-healthy/smooth-wps-chr2-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr3-after.txt -o cris-healthy/smooth-wps-chr3-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr4-after.txt -o cris-healthy/smooth-wps-chr4-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr5-after.txt -o cris-healthy/smooth-wps-chr5-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr6-after.txt -o cris-healthy/smooth-wps-chr6-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr7-after.txt -o cris-healthy/smooth-wps-chr7-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr8-after.txt -o cris-healthy/smooth-wps-chr8-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr9-after.txt -o cris-healthy/smooth-wps-chr9-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr10-after.txt -o cris-healthy/smooth-wps-chr10-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr11-after.txt -o cris-healthy/smooth-wps-chr11-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr12-after.txt -o cris-healthy/smooth-wps-chr12-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr13-after.txt -o cris-healthy/smooth-wps-chr13-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr14-after.txt -o cris-healthy/smooth-wps-chr14-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr15-after.txt -o cris-healthy/smooth-wps-chr15-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr16-after.txt -o cris-healthy/smooth-wps-chr16-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr17-after.txt -o cris-healthy/smooth-wps-chr17-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr18-after.txt -o cris-healthy/smooth-wps-chr18-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr19-after.txt -o cris-healthy/smooth-wps-chr19-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr20-after.txt -o cris-healthy/smooth-wps-chr20-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr21-after.txt -o cris-healthy/smooth-wps-chr21-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chr22-after.txt -o cris-healthy/smooth-wps-chr22-after.txt -nl 50 -nr 50 -m 4 &
+./sgfilter -i cris-healthy/wps-chrX-after.txt -o cris-healthy/smooth-wps-chrX-after.txt -nl 50 -nr 50 -m 4 &
+
+# normalize & smooth coverage
+./normalize 1 125100000 601 cris-healthy/chr1_coverage.tsv > cris-healthy/norm-chr1-cover-before.txt &
+./normalize 1 93900000 601 cris-healthy/chr2_coverage.tsv > cris-healthy/norm-chr2-cover-before.txt &
+./normalize 1 90900000 601 cris-healthy/chr3_coverage.tsv > cris-healthy/norm-chr3-cover-before.txt &
+./normalize 1 48200000 601 cris-healthy/chr4_coverage.tsv > cris-healthy/norm-chr4-cover-before.txt &
+./normalize 1 46100000 601 cris-healthy/chr5_coverage.tsv > cris-healthy/norm-chr5-cover-before.txt &
+./normalize 1 58400000 601 cris-healthy/chr6_coverage.tsv > cris-healthy/norm-chr6-cover-before.txt &
+./normalize 1 58100000 601 cris-healthy/chr7_coverage.tsv > cris-healthy/norm-chr7-cover-before.txt &
+./normalize 1 43900000 601 cris-healthy/chr8_coverage.tsv > cris-healthy/norm-chr8-cover-before.txt &
+./normalize 1 38500000 601 cris-healthy/chr9_coverage.tsv > cris-healthy/norm-chr9-cover-before.txt &
+./normalize 1 38500000 601 cris-healthy/chr10_coverage.tsv > cris-healthy/norm-chr10-cover-before.txt &
+./normalize 1 50700000 601 cris-healthy/chr11_coverage.tsv > cris-healthy/norm-chr11-cover-before.txt &
+./normalize 1 34600000 601 cris-healthy/chr12_coverage.tsv > cris-healthy/norm-chr12-cover-before.txt &
+./normalize 1 35300000 601 cris-healthy/chr16_coverage.tsv > cris-healthy/norm-chr16-cover-before.txt &
+./normalize 1 22700000 601 cris-healthy/chr17_coverage.tsv > cris-healthy/norm-chr17-cover-before.txt &
+./normalize 1 15300000 601 cris-healthy/chr18_coverage.tsv > cris-healthy/norm-chr18-cover-before.txt &
+./normalize 1 24200000 601 cris-healthy/chr19_coverage.tsv > cris-healthy/norm-chr19-cover-before.txt &
+./normalize 1 26200000 601 cris-healthy/chr20_coverage.tsv > cris-healthy/norm-chr20-cover-before.txt &
+./normalize 1 58100000 601 cris-healthy/chrX_coverage.tsv > cris-healthy/norm-chrX-cover-before.txt &
+./normalize 143200000 248956422 601 cris-healthy/chr1_coverage.tsv > cris-healthy/norm-chr1-cover-after.txt &
+./normalize 96000000 242193529 601 cris-healthy/chr2_coverage.tsv > cris-healthy/norm-chr2-cover-after.txt &
+./normalize 94000000 198295559 601 cris-healthy/chr3_coverage.tsv > cris-healthy/norm-chr3-cover-after.txt &
+./normalize 51800000 190214555 601 cris-healthy/chr4_coverage.tsv > cris-healthy/norm-chr4-cover-after.txt &
+./normalize 51400000 181538259 601 cris-healthy/chr5_coverage.tsv > cris-healthy/norm-chr5-cover-after.txt &
+./normalize 60300000 170805979 601 cris-healthy/chr6_coverage.tsv > cris-healthy/norm-chr6-cover-after.txt &
+./normalize 61000000 159345973 601 cris-healthy/chr7_coverage.tsv > cris-healthy/norm-chr7-cover-after.txt &
+./normalize 46100000 145138636 601 cris-healthy/chr8_coverage.tsv > cris-healthy/norm-chr8-cover-after.txt &
+./normalize 69000000 138394717 601 cris-healthy/chr9_coverage.tsv > cris-healthy/norm-chr9-cover-after.txt &
+./normalize 42200000 133797422 601 cris-healthy/chr10_coverage.tsv > cris-healthy/norm-chr10-cover-after.txt &
+./normalize 54700000 135086622 601 cris-healthy/chr11_coverage.tsv > cris-healthy/norm-chr11-cover-after.txt &
+./normalize 37400000 133275309 601 cris-healthy/chr12_coverage.tsv > cris-healthy/norm-chr12-cover-after.txt &
+./normalize 16600000 114364328 601 cris-healthy/chr13_coverage.tsv > cris-healthy/norm-chr13-cover-after.txt &
+./normalize 20200000 107043718 601 cris-healthy/chr14_coverage.tsv > cris-healthy/norm-chr14-cover-after.txt &
+./normalize 23500000 101991189 601 cris-healthy/chr15_coverage.tsv > cris-healthy/norm-chr15-cover-after.txt &
+./normalize 46500000 90338345 601 cris-healthy/chr16_coverage.tsv > cris-healthy/norm-chr16-cover-after.txt &
+./normalize 27000000 83257441 601 cris-healthy/chr17_coverage.tsv > cris-healthy/norm-chr17-cover-after.txt &
+./normalize 21200000 80373285 601 cris-healthy/chr18_coverage.tsv > cris-healthy/norm-chr18-cover-after.txt &
+./normalize 27500000 58617616 601 cris-healthy/chr19_coverage.tsv > cris-healthy/norm-chr19-cover-after.txt &
+./normalize 28800000 64444167 601 cris-healthy/chr20_coverage.tsv > cris-healthy/norm-chr20-cover-after.txt &
+./normalize 13100000 46709983 601 cris-healthy/chr21_coverage.tsv > cris-healthy/norm-chr21-cover-after.txt &
+./normalize 15500000 50818468 601 cris-healthy/chr22_coverage.tsv > cris-healthy/norm-chr22-cover-after.txt &
+./normalize 63800000 156040895 601 cris-healthy/chrX_coverage.tsv > cris-healthy/norm-chrX-cover-after.txt &
+./sgfilter -i cris-healthy/norm-chr1-cover-before.txt -o cris-healthy/smooth-chr1-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr2-cover-before.txt -o cris-healthy/smooth-chr2-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr3-cover-before.txt -o cris-healthy/smooth-chr3-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr4-cover-before.txt -o cris-healthy/smooth-chr4-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr5-cover-before.txt -o cris-healthy/smooth-chr5-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr6-cover-before.txt -o cris-healthy/smooth-chr6-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr7-cover-before.txt -o cris-healthy/smooth-chr7-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr8-cover-before.txt -o cris-healthy/smooth-chr8-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr9-cover-before.txt -o cris-healthy/smooth-chr9-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr10-cover-before.txt -o cris-healthy/smooth-chr10-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr11-cover-before.txt -o cris-healthy/smooth-chr11-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr12-cover-before.txt -o cris-healthy/smooth-chr12-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr16-cover-before.txt -o cris-healthy/smooth-chr16-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr17-cover-before.txt -o cris-healthy/smooth-chr17-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr18-cover-before.txt -o cris-healthy/smooth-chr18-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr19-cover-before.txt -o cris-healthy/smooth-chr19-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr20-cover-before.txt -o cris-healthy/smooth-chr20-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chrX-cover-before.txt -o cris-healthy/smooth-chrX-cover-before.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr1-cover-after.txt -o cris-healthy/smooth-chr1-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr2-cover-after.txt -o cris-healthy/smooth-chr2-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr3-cover-after.txt -o cris-healthy/smooth-chr3-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr4-cover-after.txt -o cris-healthy/smooth-chr4-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr5-cover-after.txt -o cris-healthy/smooth-chr5-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr6-cover-after.txt -o cris-healthy/smooth-chr6-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr7-cover-after.txt -o cris-healthy/smooth-chr7-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr8-cover-after.txt -o cris-healthy/smooth-chr8-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr9-cover-after.txt -o cris-healthy/smooth-chr9-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr10-cover-after.txt -o cris-healthy/smooth-chr10-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr11-cover-after.txt -o cris-healthy/smooth-chr11-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr12-cover-after.txt -o cris-healthy/smooth-chr12-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr13-cover-after.txt -o cris-healthy/smooth-chr13-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr14-cover-after.txt -o cris-healthy/smooth-chr14-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr15-cover-after.txt -o cris-healthy/smooth-chr15-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr16-cover-after.txt -o cris-healthy/smooth-chr16-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr17-cover-after.txt -o cris-healthy/smooth-chr17-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr18-cover-after.txt -o cris-healthy/smooth-chr18-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr19-cover-after.txt -o cris-healthy/smooth-chr19-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr20-cover-after.txt -o cris-healthy/smooth-chr20-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr21-cover-after.txt -o cris-healthy/smooth-chr21-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chr22-cover-after.txt -o cris-healthy/smooth-chr22-cover-after.txt -nl 100 -nr 100 -m 4 &
+./sgfilter -i cris-healthy/norm-chrX-cover-after.txt -o cris-healthy/smooth-chrX-cover-after.txt -nl 100 -nr 100 -m 4 &
+
+# normalize & smooth starts/ends
+./normalize 1 125100000 601 cris-healthy/chr1_starts.tsv > cris-healthy/norm-chr1-starts-before.txt &
+./normalize 1 93900000 601 cris-healthy/chr2_starts.tsv > cris-healthy/norm-chr2-starts-before.txt &
+./normalize 1 90900000 601 cris-healthy/chr3_starts.tsv > cris-healthy/norm-chr3-starts-before.txt &
+./normalize 1 48200000 601 cris-healthy/chr4_starts.tsv > cris-healthy/norm-chr4-starts-before.txt &
+./normalize 1 46100000 601 cris-healthy/chr5_starts.tsv > cris-healthy/norm-chr5-starts-before.txt &
+./normalize 1 58400000 601 cris-healthy/chr6_starts.tsv > cris-healthy/norm-chr6-starts-before.txt &
+./normalize 1 58100000 601 cris-healthy/chr7_starts.tsv > cris-healthy/norm-chr7-starts-before.txt &
+./normalize 1 43900000 601 cris-healthy/chr8_starts.tsv > cris-healthy/norm-chr8-starts-before.txt &
+./normalize 1 38500000 601 cris-healthy/chr9_starts.tsv > cris-healthy/norm-chr9-starts-before.txt &
+./normalize 1 38500000 601 cris-healthy/chr10_starts.tsv > cris-healthy/norm-chr10-starts-before.txt &
+./normalize 1 50700000 601 cris-healthy/chr11_starts.tsv > cris-healthy/norm-chr11-starts-before.txt &
+./normalize 1 34600000 601 cris-healthy/chr12_starts.tsv > cris-healthy/norm-chr12-starts-before.txt &
+./normalize 1 35300000 601 cris-healthy/chr16_starts.tsv > cris-healthy/norm-chr16-starts-before.txt &
+./normalize 1 22700000 601 cris-healthy/chr17_starts.tsv > cris-healthy/norm-chr17-starts-before.txt &
+./normalize 1 15300000 601 cris-healthy/chr18_starts.tsv > cris-healthy/norm-chr18-starts-before.txt &
+./normalize 1 24200000 601 cris-healthy/chr19_starts.tsv > cris-healthy/norm-chr19-starts-before.txt &
+./normalize 1 26200000 601 cris-healthy/chr20_starts.tsv > cris-healthy/norm-chr20-starts-before.txt &
+./normalize 1 58100000 601 cris-healthy/chrX_starts.tsv > cris-healthy/norm-chrX-starts-before.txt &
+./normalize 143200000 248956422 601 cris-healthy/chr1_starts.tsv > cris-healthy/norm-chr1-starts-after.txt &
+./normalize 96000000 242193529 601 cris-healthy/chr2_starts.tsv > cris-healthy/norm-chr2-starts-after.txt &
+./normalize 94000000 198295559 601 cris-healthy/chr3_starts.tsv > cris-healthy/norm-chr3-starts-after.txt &
+./normalize 51800000 190214555 601 cris-healthy/chr4_starts.tsv > cris-healthy/norm-chr4-starts-after.txt &
+./normalize 51400000 181538259 601 cris-healthy/chr5_starts.tsv > cris-healthy/norm-chr5-starts-after.txt &
+./normalize 60300000 170805979 601 cris-healthy/chr6_starts.tsv > cris-healthy/norm-chr6-starts-after.txt &
+./normalize 61000000 159345973 601 cris-healthy/chr7_starts.tsv > cris-healthy/norm-chr7-starts-after.txt &
+./normalize 46100000 145138636 601 cris-healthy/chr8_starts.tsv > cris-healthy/norm-chr8-starts-after.txt &
+./normalize 69000000 138394717 601 cris-healthy/chr9_starts.tsv > cris-healthy/norm-chr9-starts-after.txt &
+./normalize 42200000 133797422 601 cris-healthy/chr10_starts.tsv > cris-healthy/norm-chr10-starts-after.txt &
+./normalize 54700000 135086622 601 cris-healthy/chr11_starts.tsv > cris-healthy/norm-chr11-starts-after.txt &
+./normalize 37400000 133275309 601 cris-healthy/chr12_starts.tsv > cris-healthy/norm-chr12-starts-after.txt &
+./normalize 16600000 114364328 601 cris-healthy/chr13_starts.tsv > cris-healthy/norm-chr13-starts-after.txt &
+./normalize 20200000 107043718 601 cris-healthy/chr14_starts.tsv > cris-healthy/norm-chr14-starts-after.txt &
+./normalize 23500000 101991189 601 cris-healthy/chr15_starts.tsv > cris-healthy/norm-chr15-starts-after.txt &
+./normalize 46500000 90338345 601 cris-healthy/chr16_starts.tsv > cris-healthy/norm-chr16-starts-after.txt &
+./normalize 27000000 83257441 601 cris-healthy/chr17_starts.tsv > cris-healthy/norm-chr17-starts-after.txt &
+./normalize 21200000 80373285 601 cris-healthy/chr18_starts.tsv > cris-healthy/norm-chr18-starts-after.txt &
+./normalize 27500000 58617616 601 cris-healthy/chr19_starts.tsv > cris-healthy/norm-chr19-starts-after.txt &
+./normalize 28800000 64444167 601 cris-healthy/chr20_starts.tsv > cris-healthy/norm-chr20-starts-after.txt &
+./normalize 13100000 46709983 601 cris-healthy/chr21_starts.tsv > cris-healthy/norm-chr21-starts-after.txt &
+./normalize 15500000 50818468 601 cris-healthy/chr22_starts.tsv > cris-healthy/norm-chr22-starts-after.txt &
+./normalize 63800000 156040895 601 cris-healthy/chrX_starts.tsv > cris-healthy/norm-chrX-starts-after.txt &
+./normalize 1 125100000 601 cris-healthy/chr1_ends.tsv > cris-healthy/norm-chr1-ends-before.txt &
+./normalize 1 93900000 601 cris-healthy/chr2_ends.tsv > cris-healthy/norm-chr2-ends-before.txt &
+./normalize 1 90900000 601 cris-healthy/chr3_ends.tsv > cris-healthy/norm-chr3-ends-before.txt &
+./normalize 1 48200000 601 cris-healthy/chr4_ends.tsv > cris-healthy/norm-chr4-ends-before.txt &
+./normalize 1 46100000 601 cris-healthy/chr5_ends.tsv > cris-healthy/norm-chr5-ends-before.txt &
+./normalize 1 58400000 601 cris-healthy/chr6_ends.tsv > cris-healthy/norm-chr6-ends-before.txt &
+./normalize 1 58100000 601 cris-healthy/chr7_ends.tsv > cris-healthy/norm-chr7-ends-before.txt &
+./normalize 1 43900000 601 cris-healthy/chr8_ends.tsv > cris-healthy/norm-chr8-ends-before.txt &
+./normalize 1 38500000 601 cris-healthy/chr9_ends.tsv > cris-healthy/norm-chr9-ends-before.txt &
+./normalize 1 38500000 601 cris-healthy/chr10_ends.tsv > cris-healthy/norm-chr10-ends-before.txt &
+./normalize 1 50700000 601 cris-healthy/chr11_ends.tsv > cris-healthy/norm-chr11-ends-before.txt &
+./normalize 1 34600000 601 cris-healthy/chr12_ends.tsv > cris-healthy/norm-chr12-ends-before.txt &
+./normalize 1 35300000 601 cris-healthy/chr16_ends.tsv > cris-healthy/norm-chr16-ends-before.txt &
+./normalize 1 22700000 601 cris-healthy/chr17_ends.tsv > cris-healthy/norm-chr17-ends-before.txt &
+./normalize 1 15300000 601 cris-healthy/chr18_ends.tsv > cris-healthy/norm-chr18-ends-before.txt &
+./normalize 1 24200000 601 cris-healthy/chr19_ends.tsv > cris-healthy/norm-chr19-ends-before.txt &
+./normalize 1 26200000 601 cris-healthy/chr20_ends.tsv > cris-healthy/norm-chr20-ends-before.txt &
+./normalize 1 58100000 601 cris-healthy/chrX_ends.tsv > cris-healthy/norm-chrX-ends-before.txt &
+./normalize 143200000 248956422 601 cris-healthy/chr1_ends.tsv > cris-healthy/norm-chr1-ends-after.txt &
+./normalize 96000000 242193529 601 cris-healthy/chr2_ends.tsv > cris-healthy/norm-chr2-ends-after.txt &
+./normalize 94000000 198295559 601 cris-healthy/chr3_ends.tsv > cris-healthy/norm-chr3-ends-after.txt &
+./normalize 51800000 190214555 601 cris-healthy/chr4_ends.tsv > cris-healthy/norm-chr4-ends-after.txt &
+./normalize 51400000 181538259 601 cris-healthy/chr5_ends.tsv > cris-healthy/norm-chr5-ends-after.txt &
+./normalize 60300000 170805979 601 cris-healthy/chr6_ends.tsv > cris-healthy/norm-chr6-ends-after.txt &
+./normalize 61000000 159345973 601 cris-healthy/chr7_ends.tsv > cris-healthy/norm-chr7-ends-after.txt &
+./normalize 46100000 145138636 601 cris-healthy/chr8_ends.tsv > cris-healthy/norm-chr8-ends-after.txt &
+./normalize 69000000 138394717 601 cris-healthy/chr9_ends.tsv > cris-healthy/norm-chr9-ends-after.txt &
+./normalize 42200000 133797422 601 cris-healthy/chr10_ends.tsv > cris-healthy/norm-chr10-ends-after.txt &
+./normalize 54700000 135086622 601 cris-healthy/chr11_ends.tsv > cris-healthy/norm-chr11-ends-after.txt &
+./normalize 37400000 133275309 601 cris-healthy/chr12_ends.tsv > cris-healthy/norm-chr12-ends-after.txt &
+./normalize 16600000 114364328 601 cris-healthy/chr13_ends.tsv > cris-healthy/norm-chr13-ends-after.txt &
+./normalize 20200000 107043718 601 cris-healthy/chr14_ends.tsv > cris-healthy/norm-chr14-ends-after.txt &
+./normalize 23500000 101991189 601 cris-healthy/chr15_ends.tsv > cris-healthy/norm-chr15-ends-after.txt &
+./normalize 46500000 90338345 601 cris-healthy/chr16_ends.tsv > cris-healthy/norm-chr16-ends-after.txt &
+./normalize 27000000 83257441 601 cris-healthy/chr17_ends.tsv > cris-healthy/norm-chr17-ends-after.txt &
+./normalize 21200000 80373285 601 cris-healthy/chr18_ends.tsv > cris-healthy/norm-chr18-ends-after.txt &
+./normalize 27500000 58617616 601 cris-healthy/chr19_ends.tsv > cris-healthy/norm-chr19-ends-after.txt &
+./normalize 28800000 64444167 601 cris-healthy/chr20_ends.tsv > cris-healthy/norm-chr20-ends-after.txt &
+./normalize 13100000 46709983 601 cris-healthy/chr21_ends.tsv > cris-healthy/norm-chr21-ends-after.txt &
+./normalize 15500000 50818468 601 cris-healthy/chr22_ends.tsv > cris-healthy/norm-chr22-ends-after.txt &
+./normalize 63800000 156040895 601 cris-healthy/chrX_ends.tsv > cris-healthy/norm-chrX-ends-after.txt &
+./sgfilter -i cris-healthy/norm-chr1-starts-before.txt -o cris-healthy/smooth-chr1-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr2-starts-before.txt -o cris-healthy/smooth-chr2-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr3-starts-before.txt -o cris-healthy/smooth-chr3-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr4-starts-before.txt -o cris-healthy/smooth-chr4-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr5-starts-before.txt -o cris-healthy/smooth-chr5-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr6-starts-before.txt -o cris-healthy/smooth-chr6-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr7-starts-before.txt -o cris-healthy/smooth-chr7-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr8-starts-before.txt -o cris-healthy/smooth-chr8-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr9-starts-before.txt -o cris-healthy/smooth-chr9-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr10-starts-before.txt -o cris-healthy/smooth-chr10-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr11-starts-before.txt -o cris-healthy/smooth-chr11-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr12-starts-before.txt -o cris-healthy/smooth-chr12-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr16-starts-before.txt -o cris-healthy/smooth-chr16-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr17-starts-before.txt -o cris-healthy/smooth-chr17-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr18-starts-before.txt -o cris-healthy/smooth-chr18-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr19-starts-before.txt -o cris-healthy/smooth-chr19-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr20-starts-before.txt -o cris-healthy/smooth-chr20-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chrX-starts-before.txt -o cris-healthy/smooth-chrX-starts-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr1-starts-after.txt -o cris-healthy/smooth-chr1-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr2-starts-after.txt -o cris-healthy/smooth-chr2-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr3-starts-after.txt -o cris-healthy/smooth-chr3-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr4-starts-after.txt -o cris-healthy/smooth-chr4-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr5-starts-after.txt -o cris-healthy/smooth-chr5-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr6-starts-after.txt -o cris-healthy/smooth-chr6-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr7-starts-after.txt -o cris-healthy/smooth-chr7-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr8-starts-after.txt -o cris-healthy/smooth-chr8-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr9-starts-after.txt -o cris-healthy/smooth-chr9-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr10-starts-after.txt -o cris-healthy/smooth-chr10-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr11-starts-after.txt -o cris-healthy/smooth-chr11-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr12-starts-after.txt -o cris-healthy/smooth-chr12-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr13-starts-after.txt -o cris-healthy/smooth-chr13-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr14-starts-after.txt -o cris-healthy/smooth-chr14-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr15-starts-after.txt -o cris-healthy/smooth-chr15-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr16-starts-after.txt -o cris-healthy/smooth-chr16-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr17-starts-after.txt -o cris-healthy/smooth-chr17-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr18-starts-after.txt -o cris-healthy/smooth-chr18-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr19-starts-after.txt -o cris-healthy/smooth-chr19-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr20-starts-after.txt -o cris-healthy/smooth-chr20-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr21-starts-after.txt -o cris-healthy/smooth-chr21-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr22-starts-after.txt -o cris-healthy/smooth-chr22-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chrX-starts-after.txt -o cris-healthy/smooth-chrX-starts-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr1-ends-before.txt -o cris-healthy/smooth-chr1-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr2-ends-before.txt -o cris-healthy/smooth-chr2-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr3-ends-before.txt -o cris-healthy/smooth-chr3-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr4-ends-before.txt -o cris-healthy/smooth-chr4-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr5-ends-before.txt -o cris-healthy/smooth-chr5-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr6-ends-before.txt -o cris-healthy/smooth-chr6-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr7-ends-before.txt -o cris-healthy/smooth-chr7-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr8-ends-before.txt -o cris-healthy/smooth-chr8-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr9-ends-before.txt -o cris-healthy/smooth-chr9-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr10-ends-before.txt -o cris-healthy/smooth-chr10-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr11-ends-before.txt -o cris-healthy/smooth-chr11-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr12-ends-before.txt -o cris-healthy/smooth-chr12-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr16-ends-before.txt -o cris-healthy/smooth-chr16-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr17-ends-before.txt -o cris-healthy/smooth-chr17-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr18-ends-before.txt -o cris-healthy/smooth-chr18-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr19-ends-before.txt -o cris-healthy/smooth-chr19-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr20-ends-before.txt -o cris-healthy/smooth-chr20-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chrX-ends-before.txt -o cris-healthy/smooth-chrX-ends-before.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr1-ends-after.txt -o cris-healthy/smooth-chr1-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr2-ends-after.txt -o cris-healthy/smooth-chr2-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr3-ends-after.txt -o cris-healthy/smooth-chr3-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr4-ends-after.txt -o cris-healthy/smooth-chr4-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr5-ends-after.txt -o cris-healthy/smooth-chr5-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr6-ends-after.txt -o cris-healthy/smooth-chr6-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr7-ends-after.txt -o cris-healthy/smooth-chr7-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr8-ends-after.txt -o cris-healthy/smooth-chr8-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr9-ends-after.txt -o cris-healthy/smooth-chr9-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr10-ends-after.txt -o cris-healthy/smooth-chr10-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr11-ends-after.txt -o cris-healthy/smooth-chr11-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr12-ends-after.txt -o cris-healthy/smooth-chr12-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr13-ends-after.txt -o cris-healthy/smooth-chr13-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr14-ends-after.txt -o cris-healthy/smooth-chr14-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr15-ends-after.txt -o cris-healthy/smooth-chr15-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr16-ends-after.txt -o cris-healthy/smooth-chr16-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr17-ends-after.txt -o cris-healthy/smooth-chr17-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr18-ends-after.txt -o cris-healthy/smooth-chr18-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr19-ends-after.txt -o cris-healthy/smooth-chr19-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr20-ends-after.txt -o cris-healthy/smooth-chr20-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr21-ends-after.txt -o cris-healthy/smooth-chr21-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chr22-ends-after.txt -o cris-healthy/smooth-chr22-ends-after.txt -nl 200 -nr 200 -m 4 &
+./sgfilter -i cris-healthy/norm-chrX-ends-after.txt -o cris-healthy/smooth-chrX-ends-after.txt -nl 200 -nr 200 -m 4 &
+
+# WPS peak detection
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr1-cover-before.txt -sw cris-healthy/smooth-wps-chr1-before.txt -ss cris-healthy/smooth-chr1-starts-before.txt -se cris-healthy/smooth-chr1-ends-before.txt -basename cris-healthy-wps-peaks/chr1_before -rsc cris-healthy/smooth-chr1_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr2-cover-before.txt -sw cris-healthy/smooth-wps-chr2-before.txt -ss cris-healthy/smooth-chr2-starts-before.txt -se cris-healthy/smooth-chr2-ends-before.txt -basename cris-healthy-wps-peaks/chr2_before -rsc cris-healthy/smooth-chr2_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr3-cover-before.txt -sw cris-healthy/smooth-wps-chr3-before.txt -ss cris-healthy/smooth-chr3-starts-before.txt -se cris-healthy/smooth-chr3-ends-before.txt -basename cris-healthy-wps-peaks/chr3_before -rsc cris-healthy/smooth-chr3_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr4-cover-before.txt -sw cris-healthy/smooth-wps-chr4-before.txt -ss cris-healthy/smooth-chr4-starts-before.txt -se cris-healthy/smooth-chr4-ends-before.txt -basename cris-healthy-wps-peaks/chr4_before -rsc cris-healthy/smooth-chr4_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr5-cover-before.txt -sw cris-healthy/smooth-wps-chr5-before.txt -ss cris-healthy/smooth-chr5-starts-before.txt -se cris-healthy/smooth-chr5-ends-before.txt -basename cris-healthy-wps-peaks/chr5_before -rsc cris-healthy/smooth-chr5_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr6-cover-before.txt -sw cris-healthy/smooth-wps-chr6-before.txt -ss cris-healthy/smooth-chr6-starts-before.txt -se cris-healthy/smooth-chr6-ends-before.txt -basename cris-healthy-wps-peaks/chr6_before -rsc cris-healthy/smooth-chr6_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr7-cover-before.txt -sw cris-healthy/smooth-wps-chr7-before.txt -ss cris-healthy/smooth-chr7-starts-before.txt -se cris-healthy/smooth-chr7-ends-before.txt -basename cris-healthy-wps-peaks/chr7_before -rsc cris-healthy/smooth-chr7_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr8-cover-before.txt -sw cris-healthy/smooth-wps-chr8-before.txt -ss cris-healthy/smooth-chr8-starts-before.txt -se cris-healthy/smooth-chr8-ends-before.txt -basename cris-healthy-wps-peaks/chr8_before -rsc cris-healthy/smooth-chr8_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr9-cover-before.txt -sw cris-healthy/smooth-wps-chr9-before.txt -ss cris-healthy/smooth-chr9-starts-before.txt -se cris-healthy/smooth-chr9-ends-before.txt -basename cris-healthy-wps-peaks/chr9_before -rsc cris-healthy/smooth-chr9_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr10-cover-before.txt -sw cris-healthy/smooth-wps-chr10-before.txt -ss cris-healthy/smooth-chr10-starts-before.txt -se cris-healthy/smooth-chr10-ends-before.txt -basename cris-healthy-wps-peaks/chr10_before -rsc cris-healthy/smooth-chr10_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr11-cover-before.txt -sw cris-healthy/smooth-wps-chr11-before.txt -ss cris-healthy/smooth-chr11-starts-before.txt -se cris-healthy/smooth-chr11-ends-before.txt -basename cris-healthy-wps-peaks/chr11_before -rsc cris-healthy/smooth-chr11_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr12-cover-before.txt -sw cris-healthy/smooth-wps-chr12-before.txt -ss cris-healthy/smooth-chr12-starts-before.txt -se cris-healthy/smooth-chr12-ends-before.txt -basename cris-healthy-wps-peaks/chr12_before -rsc cris-healthy/smooth-chr12_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr16-cover-before.txt -sw cris-healthy/smooth-wps-chr16-before.txt -ss cris-healthy/smooth-chr16-starts-before.txt -se cris-healthy/smooth-chr16-ends-before.txt -basename cris-healthy-wps-peaks/chr16_before -rsc cris-healthy/smooth-chr16_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr17-cover-before.txt -sw cris-healthy/smooth-wps-chr17-before.txt -ss cris-healthy/smooth-chr17-starts-before.txt -se cris-healthy/smooth-chr17-ends-before.txt -basename cris-healthy-wps-peaks/chr17_before -rsc cris-healthy/smooth-chr17_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr18-cover-before.txt -sw cris-healthy/smooth-wps-chr18-before.txt -ss cris-healthy/smooth-chr18-starts-before.txt -se cris-healthy/smooth-chr18-ends-before.txt -basename cris-healthy-wps-peaks/chr18_before -rsc cris-healthy/smooth-chr18_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr19-cover-before.txt -sw cris-healthy/smooth-wps-chr19-before.txt -ss cris-healthy/smooth-chr19-starts-before.txt -se cris-healthy/smooth-chr19-ends-before.txt -basename cris-healthy-wps-peaks/chr19_before -rsc cris-healthy/smooth-chr19_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr20-cover-before.txt -sw cris-healthy/smooth-wps-chr20-before.txt -ss cris-healthy/smooth-chr20-starts-before.txt -se cris-healthy/smooth-chr20-ends-before.txt -basename cris-healthy-wps-peaks/chr20_before -rsc cris-healthy/smooth-chr20_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chrX-cover-before.txt -sw cris-healthy/smooth-wps-chrX-before.txt -ss cris-healthy/smooth-chrX-starts-before.txt -se cris-healthy/smooth-chrX-ends-before.txt -basename cris-healthy-wps-peaks/chrX_before -rsc cris-healthy/smooth-chrX_cover_no_norm_before.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr1-cover-after.txt -sw cris-healthy/smooth-wps-chr1-after.txt -ss cris-healthy/smooth-chr1-starts-after.txt -se cris-healthy/smooth-chr1-ends-after.txt -basename cris-healthy-wps-peaks/chr1_after -rsc cris-healthy/smooth-chr1_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr2-cover-after.txt -sw cris-healthy/smooth-wps-chr2-after.txt -ss cris-healthy/smooth-chr2-starts-after.txt -se cris-healthy/smooth-chr2-ends-after.txt -basename cris-healthy-wps-peaks/chr2_after -rsc cris-healthy/smooth-chr2_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr3-cover-after.txt -sw cris-healthy/smooth-wps-chr3-after.txt -ss cris-healthy/smooth-chr3-starts-after.txt -se cris-healthy/smooth-chr3-ends-after.txt -basename cris-healthy-wps-peaks/chr3_after -rsc cris-healthy/smooth-chr3_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr4-cover-after.txt -sw cris-healthy/smooth-wps-chr4-after.txt -ss cris-healthy/smooth-chr4-starts-after.txt -se cris-healthy/smooth-chr4-ends-after.txt -basename cris-healthy-wps-peaks/chr4_after -rsc cris-healthy/smooth-chr4_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr5-cover-after.txt -sw cris-healthy/smooth-wps-chr5-after.txt -ss cris-healthy/smooth-chr5-starts-after.txt -se cris-healthy/smooth-chr5-ends-after.txt -basename cris-healthy-wps-peaks/chr5_after -rsc cris-healthy/smooth-chr5_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr6-cover-after.txt -sw cris-healthy/smooth-wps-chr6-after.txt -ss cris-healthy/smooth-chr6-starts-after.txt -se cris-healthy/smooth-chr6-ends-after.txt -basename cris-healthy-wps-peaks/chr6_after -rsc cris-healthy/smooth-chr6_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr7-cover-after.txt -sw cris-healthy/smooth-wps-chr7-after.txt -ss cris-healthy/smooth-chr7-starts-after.txt -se cris-healthy/smooth-chr7-ends-after.txt -basename cris-healthy-wps-peaks/chr7_after -rsc cris-healthy/smooth-chr7_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr8-cover-after.txt -sw cris-healthy/smooth-wps-chr8-after.txt -ss cris-healthy/smooth-chr8-starts-after.txt -se cris-healthy/smooth-chr8-ends-after.txt -basename cris-healthy-wps-peaks/chr8_after -rsc cris-healthy/smooth-chr8_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr9-cover-after.txt -sw cris-healthy/smooth-wps-chr9-after.txt -ss cris-healthy/smooth-chr9-starts-after.txt -se cris-healthy/smooth-chr9-ends-after.txt -basename cris-healthy-wps-peaks/chr9_after -rsc cris-healthy/smooth-chr9_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr10-cover-after.txt -sw cris-healthy/smooth-wps-chr10-after.txt -ss cris-healthy/smooth-chr10-starts-after.txt -se cris-healthy/smooth-chr10-ends-after.txt -basename cris-healthy-wps-peaks/chr10_after -rsc cris-healthy/smooth-chr10_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr11-cover-after.txt -sw cris-healthy/smooth-wps-chr11-after.txt -ss cris-healthy/smooth-chr11-starts-after.txt -se cris-healthy/smooth-chr11-ends-after.txt -basename cris-healthy-wps-peaks/chr11_after -rsc cris-healthy/smooth-chr11_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr12-cover-after.txt -sw cris-healthy/smooth-wps-chr12-after.txt -ss cris-healthy/smooth-chr12-starts-after.txt -se cris-healthy/smooth-chr12-ends-after.txt -basename cris-healthy-wps-peaks/chr12_after -rsc cris-healthy/smooth-chr12_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr13-cover-after.txt -sw cris-healthy/smooth-wps-chr13-after.txt -ss cris-healthy/smooth-chr13-starts-after.txt -se cris-healthy/smooth-chr13-ends-after.txt -basename cris-healthy-wps-peaks/chr13_after -rsc cris-healthy/smooth-chr13_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr14-cover-after.txt -sw cris-healthy/smooth-wps-chr14-after.txt -ss cris-healthy/smooth-chr14-starts-after.txt -se cris-healthy/smooth-chr14-ends-after.txt -basename cris-healthy-wps-peaks/chr14_after -rsc cris-healthy/smooth-chr14_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr15-cover-after.txt -sw cris-healthy/smooth-wps-chr15-after.txt -ss cris-healthy/smooth-chr15-starts-after.txt -se cris-healthy/smooth-chr15-ends-after.txt -basename cris-healthy-wps-peaks/chr15_after -rsc cris-healthy/smooth-chr15_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr16-cover-after.txt -sw cris-healthy/smooth-wps-chr16-after.txt -ss cris-healthy/smooth-chr16-starts-after.txt -se cris-healthy/smooth-chr16-ends-after.txt -basename cris-healthy-wps-peaks/chr16_after -rsc cris-healthy/smooth-chr16_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr17-cover-after.txt -sw cris-healthy/smooth-wps-chr17-after.txt -ss cris-healthy/smooth-chr17-starts-after.txt -se cris-healthy/smooth-chr17-ends-after.txt -basename cris-healthy-wps-peaks/chr17_after -rsc cris-healthy/smooth-chr17_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr18-cover-after.txt -sw cris-healthy/smooth-wps-chr18-after.txt -ss cris-healthy/smooth-chr18-starts-after.txt -se cris-healthy/smooth-chr18-ends-after.txt -basename cris-healthy-wps-peaks/chr18_after -rsc cris-healthy/smooth-chr18_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr19-cover-after.txt -sw cris-healthy/smooth-wps-chr19-after.txt -ss cris-healthy/smooth-chr19-starts-after.txt -se cris-healthy/smooth-chr19-ends-after.txt -basename cris-healthy-wps-peaks/chr19_after -rsc cris-healthy/smooth-chr19_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr20-cover-after.txt -sw cris-healthy/smooth-wps-chr20-after.txt -ss cris-healthy/smooth-chr20-starts-after.txt -se cris-healthy/smooth-chr20-ends-after.txt -basename cris-healthy-wps-peaks/chr20_after -rsc cris-healthy/smooth-chr20_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr21-cover-after.txt -sw cris-healthy/smooth-wps-chr21-after.txt -ss cris-healthy/smooth-chr21-starts-after.txt -se cris-healthy/smooth-chr21-ends-after.txt -basename cris-healthy-wps-peaks/chr21_after -rsc cris-healthy/smooth-chr21_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chr22-cover-after.txt -sw cris-healthy/smooth-wps-chr22-after.txt -ss cris-healthy/smooth-chr22-starts-after.txt -se cris-healthy/smooth-chr22-ends-after.txt -basename cris-healthy-wps-peaks/chr22_after -rsc cris-healthy/smooth-chr22_cover_no_norm_after.txt &
+./findChromatosomes -verbose -sc cris-healthy/smooth-chrX-cover-after.txt -sw cris-healthy/smooth-wps-chrX-after.txt -ss cris-healthy/smooth-chrX-starts-after.txt -se cris-healthy/smooth-chrX-ends-after.txt -basename cris-healthy-wps-peaks/chrX_after -rsc cris-healthy/smooth-chrX_cover_no_norm_after.txt &
+
+# average coverage by blocks of 1000 bp
+./blockCoverage 1000 cris-healthy/ _coverage cris-healthy/
+
+# Compilation of the atlas
+# The compilation of all the selected cirDNA coverage peaks is performed by the following piece of R code
+library(data.table)
+
+folder <- "../atlas/cris-healthy-wps-peaks/"
+flist <- list.files(folder,"selection_cover")
+atlas <- list()
+for (f in flist){
+  chr <- gsub("chr","",strsplit(f,"_")[[1]][1])
+  sel <- fread(paste0(folder,f),data.table=F)
+  atlas[[chr]] <- rbind(atlas[[chr]],sel)
+}
+o <- c(order(as.numeric(names(atlas)[-length(atlas)])),23)
+names(atlas)[o]
+atlas <- atlas[o]
+
+for (c in names(atlas)){
+  atlas[[c]] <- atlas[[c]][order(atlas[[c]][,"position"]),]
+  atlas[[c]][,"chr"] <- c
+}
+
+compiled.atlas <- NULL
+for (c in names(atlas))
+  compiled.atlas <- rbind(compiled.atlas,atlas[[c]][,c("chr","position","coverage","diameter")])
+
+fwrite(compiled.atlas,file=paste0(folder,"compiled-selection.txt"),row.names=F,sep="\t",quote=F)
+
+
+# =======================================================================
+# basic statistics about atlas peaks
+# =======================================================================
+
+# chromosomeCoverage-1.R to study sex-corrected chromosome coverage and show Y is much less covered.
+
+# compile-wps.peaks.R to get plots about the # of peaks and their coverage per chromosome
+
+
+
+# =======================================================================
+# Study of atlas peak coverage and k-stack relation with fragment lengths
+# =======================================================================
+
+# compile-wps-peaks.R for top/bottom coverage and diameter distribution
+# compile-wps-peaks.R also for intersections between 8-stacks and atlas peaks
+# k-stack cirDNA fragment coverage plot, number of k-stacks/FPs plot, and k-stack overlap rates plot with choiceOfK.R
+
+# fragment lengths over top/bottom covered peaks versus random positions
+./stableLengthDistrib cover-fraglen/high-coverage-wps-peaks.txt /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019/ EE cover-fraglen/cris-high
+./stableLengthDistrib cover-fraglen/low-coverage-wps-peaks.txt /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019/ EE cover-fraglen/cris-low
+# etc. for other peak selections and for the other datasets (Sun & Jiang)
+# Generation of the plots with fragmentSizeDifferences-1.R
+
+# fragment lengths at k-stack centers for k=1,..,10: commands generated in fragmentSizeDifferences-1.R, for example
+# for 8-stacks in Cristiano data:
+./computeLengthDistrib /data2/USERS/richaud/cristiano_nucleos/indivs_167_frags_coords_bed/unique_nucleos_all_167_8x.bed /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019/ EE kstack-fraglen/cris-8x &
+# Generation of the plots with fragmentSizeDifferences-1.R
+
+
+# =====================================================================
+# Extraction of individual patient cirDNA coverage at each atlas peak
+# =====================================================================
+
+./patientCoverProcess.pl --nproc=15 --outfolder=indiv-profiles/cris-healthy /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019/EE8*.tsv 2> log-profiles-cris-healthy.txt
+
+./patientCoverProcess.pl --nproc=5 --outfolder=indiv-profiles/cris-ovarian /data2/USERS/richaud/finaledb/ovarian/cristiano/indivs/EE*.frag 2> log-profiles-cris-ovarian.txt
+./patientCoverProcess.pl --nproc=5 --outfolder=indiv-profiles/cris-colorectal /data2/USERS/richaud/finaledb/colorectal/cristiano/indivs/EE*.bed 2> log-profiles-cris-colorectal.txt
+./patientCoverProcess.pl --nproc=5 --outfolder=indiv-profiles/cris-bile_duct /data2/USERS/richaud/finaledb/bile_duct/cristiano/indivs/EE*.frag 2> log-profiles-cris-bile_duct.txt
+./patientCoverProcess.pl --nproc=5 --outfolder=indiv-profiles/cris-breast /data2/USERS/richaud/finaledb/breast/cristiano/indivs/EE*.bed 2> log-profiles-cris-breast.txt
+./patientCoverProcess.pl --nproc=5 --outfolder=indiv-profiles/cris-gastric /data2/USERS/richaud/finaledb/gastric/cristiano/indivs/EE*.frag 2> log-profiles-cris-gastric.txt
+./patientCoverProcess.pl --nproc=5 --outfolder=indiv-profiles/cris-lung /data2/USERS/richaud/finaledb/lung/cristiano/indivs/EE*.frag 2> log-profiles-cris-lung.txt
+./patientCoverProcess.pl --nproc=5 --outfolder=indiv-profiles/cris-pancreatic /data2/USERS/richaud/finaledb/pancreatic/cristiano/indivs/EE*.frag 2> log-profiles-cris-pancreatic.txt
+
+./patientCoverProcess.pl --nproc=2 --outfolder=indiv-profiles/jiang-healthy/ /data2/BIOINFO/databases/FinaleDB/jiang-data-2015/EE85*.tsv 2> log-profiles-jiang-healthy.txt
+./patientCoverProcess.pl --nproc=2 --outfolder=indiv-profiles/sun-healthy/ /data2/BIOINFO/databases/FinaleDB/sun-data-2019/EE857*.tsv 2> log-profiles-sun-healthy.txt
+
+
+# ==================================================================
+# Comparison of healthy versus cancer individuals
+# ==================================================================
+
+# preparation of individual profiles with identification of outliers by PCA: prepareProfileDatasets-3.R
+# global 2D-projections: compareProfiles-3.R
+# cancer detection and separation between two cancers: cancerDetection-3.R
+
+# ===============================================================
+# Global properties
+# ===============================================================
+
+# cancer detection using randomly selected nucleosomes: cancerDetectionSubset-5.R
+# plot of local differences of coverage between cohorts and distance computation between cohorts: deltaCover-2.R
+# computation of differences between cohorts at atlas positions: hilbert-1.R
+# generation of Hilbert curve plots: genHilbertCurve-2.R
+
+# ===============================================================
+# Extracting k-stacks positions
+# ===============================================================
+
+# A bash script was used to preprocess individual patient files, extract 167bp fragments from each file, merge all 167bp fragments and extract k-stacked fragments.
+# This code was the following
+
+#!/bin/bash
+
+# list all individual patient files
+cd cristiano-data-2019
+for f in *.tsv;
+do
+        list_files1+=($f)
+done
+
+# for each file extract 167bp fragments with quality score > 30, and keep only those on chromosomes 1 to 22 and chromosomes X,Y (no contigs)
+for ((f=0; f<${#list_files1[@]}; f++))
+do
+	echo "${list_files1[f]}"
+        awk -v len=167 'BEGIN {OFS="\t"} ($3 - $2 == len) && ($4 > 30) {print}' "${list_files1[f]}" > "cris-output/${list_files1[f]%.*}_167_frags.bed"
+	awk 'BEGIN{OFS="\t"} {sub(/^chr/, "", $1)} ($1 ~ /^[1-9][0-9]*$|^X$|^Y$/) {print}' "cris-output/${list_files1[f]%.*}_167_frags.bed" > "cris-output/${list_files1[f]%.*}_167_frags_2.bed"
+	rm "cris-output/${list_files1[f]%.*}_167_frags.bed"
+done
+
+# concatenate all 167bp fragments into one file
+cd cris-output
+bedops --everything *167_frags_2.bed* > concat_all_167_score.bed
+
+# remove fragments at centromeres and on chromosome Y and sort them
+bedtools intersect -a concat_all_167_score.bed -b centromere-region.bed -v > concat_all_167_score_no_centro.bed
+awk 'BEGIN{OFS="\t"} $1!="Y" {print}' concat_all_167_score_no_centro.bed > concat_all_167_score_no_centro_noY.bed
+sort -k1,1 -k2,2n concat_all_167_score_no_centro_noY.bed > concat_all_167_score_no_centro_noY_sort.bed
+
+# count fragments with identical positions
+bedtools intersect -a concat_all_167_score_no_centro_noY_sort.bed -b concat_all_167_score_no_centro_noY_sort.bed -sorted -f 0.999 -c > overlapping_all_167.bed
+
+# create files with k-stacked fragments with unique coordinates for k in 1 to 20, and retrieve their sequences from reference genome hg38
+for i in $(seq 1 20);
+do
+python merge_frags_empils.py overlapping_all_167 unique_nucleos_all_167_"$i"x.bed $i
+bedtools getfasta -fi Homo_sapiens.GRCh38.dna.primary_assembly.fa -bed unique_nucleos_all_267_"$i"x.bed > unique_nucleos_all_267_"$i"x.fa.out
+done
+
+# =======================================================================
+# Compute log-odd frequencies of nucleotides in k-stacks positions
+# =======================================================================
+
+# Generating randomized k-stacked positions : random_sequences.py
+# For computing nucleotides (and dinucleotides) positional frequencies and log-odds : nucleotides_signature.py
+# For plotting positional log-odds : nucleo_frequency_plot.R
+
+# =======================================================================
+# Analysis of codons frequencies
+# =======================================================================
+
+# utils_codons.py :
+# - generates bed files containing positions where nucleosomes overlap coding regions
+# - shifts positions to correct ORF
+# - retrieve positions sequences and divide them into 3bp sequences
+# - computes codons frequencies and log-odds
+# codons_heatmap.R for visualisation of log-odds
+
+# =======================================================================
+# Analysis of end motifs frequencies
+# =======================================================================
+
+# Compute end motifs frequencies in all individual files : utils_end_motifs.py
+
+# =======================================================================
+# Genome annotations
+# =======================================================================
+
+# To calculate intersections of nucleosomes positions with annotated regions: genom_annot.py
+# For computing occupation rate of annotated regions : barplot_genom_annot.R
+
+# =======================================================================
+# Study of local coverage changes
+# =======================================================================
+
+# tss_express_coverage.R : calculate correlation between coverage at nucleosome covered TSS and expression data
+# diff_peaks_tfs.R : find nucleosome peaks with differential coverage in healthy and cancer patients
+# nucleos_tf_diff.py : calculate sum of coverage around TFBS intersecting differentially covered peaks, accross all individual cancer and healthy  patients files
+# tf_heatmap.R : calculate correlation of coverage around TFBS for healthy and cancer patients and visualize correlations in a heatmap
+# richr.R : perform enrichment analysis of TFs of interest
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
