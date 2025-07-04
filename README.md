@@ -8,7 +8,11 @@ this study.
 
 There is a folder ``referenceFile`` with parameter files and
 a large text file ``masterScript_v3`` that illustrates how these codes were 
-executed (in our setting).
+executed (in our setting). There is also a zipped file named
+``compiled-selection.zip``, which contains all the candidate WPS peaks, *i.e.*,
+~9.3 million peaks. The actual WPNA is limited to all the peaks in this file
+provided their diameter is larger than or equal to 147 bp and smaller than 300 bp,
+which results in ~5 million peaks.
 
 In a few cases, some programs were used in several parts of our work. We put 
 such programs in one folder only.
