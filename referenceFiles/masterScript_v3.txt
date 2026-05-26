@@ -551,10 +551,11 @@ flist <- list.files(folder,"selection_cover")
 atlas <- list()
 for (f in flist){
   chr <- gsub("chr","",strsplit(f,"_")[[1]][1])
+  print(chr)
   sel <- fread(paste0(folder,f),data.table=F)
   atlas[[chr]] <- rbind(atlas[[chr]],sel)
 }
-o <- c(order(as.numeric(names(atlas)[-length(atlas)])),23)
+o <- c(order(as.numeric(names(atlas)[-(23:24)])),23,24)
 names(atlas)[o]
 atlas <- atlas[o]
 
@@ -577,27 +578,7 @@ fwrite(compiled.atlas,file=paste0(folder,"compiled-selection.txt"),row.names=F,s
 # chromosomeCoverage-1.R to study sex-corrected chromosome coverage and show Y is much less covered.
 
 # compile-wps.peaks.R to get plots about the # of peaks and their coverage per chromosome
-
-
-
-# =======================================================================
-# Study of atlas peak coverage and k-stack relation with fragment lengths
-# =======================================================================
-
-# compile-wps-peaks.R for top/bottom coverage and diameter distribution
-# compile-wps-peaks.R also for intersections between 8-stacks and atlas peaks
-# k-stack cirDNA fragment coverage plot, number of k-stacks/FPs plot, and k-stack overlap rates plot with choiceOfK.R
-
-# fragment lengths over top/bottom covered peaks versus random positions
-./stableLengthDistrib cover-fraglen/high-coverage-wps-peaks.txt /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019/ EE cover-fraglen/cris-high
-./stableLengthDistrib cover-fraglen/low-coverage-wps-peaks.txt /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019/ EE cover-fraglen/cris-low
-# etc. for other peak selections and for the other datasets (Sun & Jiang)
-# Generation of the plots with fragmentSizeDifferences-1.R
-
-# fragment lengths at k-stack centers for k=1,..,10: commands generated in fragmentSizeDifferences-1.R, for example
-# for 8-stacks in Cristiano data:
-./computeLengthDistrib /data2/USERS/richaud/cristiano_nucleos/indivs_167_frags_coords_bed/unique_nucleos_all_167_8x.bed /data2/BIOINFO/databases/FinaleDB/cristiano-data-2019/ EE kstack-fraglen/cris-8x &
-# Generation of the plots with fragmentSizeDifferences-1.R
+# compile-wps.peaks.R also generates the random atlas positions as well as the atlas with positions in the middle of two real peaks
 
 
 # =====================================================================
@@ -615,7 +596,7 @@ fwrite(compiled.atlas,file=paste0(folder,"compiled-selection.txt"),row.names=F,s
 ./patientCoverProcess.pl --nproc=5 --outfolder=indiv-profiles/cris-pancreatic /data2/USERS/richaud/finaledb/pancreatic/cristiano/indivs/EE*.frag 2> log-profiles-cris-pancreatic.txt
 
 ./patientCoverProcess.pl --nproc=2 --outfolder=indiv-profiles/jiang-healthy/ /data2/BIOINFO/databases/FinaleDB/jiang-data-2015/EE85*.tsv 2> log-profiles-jiang-healthy.txt
-./patientCoverProcess.pl --nproc=2 --outfolder=indiv-profiles/sun-healthy/ /data2/BIOINFO/databases/FinaleDB/sun-data-2019/EE857*.tsv 2> log-profiles-sun-healthy.txt
+./patientCoverProcess.pl --nproc=2 --outfolder=indiv-profiles/sun-liver-transplant/ /data2/BIOINFO/databases/FinaleDB/sun-data-2019/EE857*.tsv 2> log-profiles-sun-liver-transplant.txt
 
 
 # ==================================================================
@@ -635,58 +616,6 @@ fwrite(compiled.atlas,file=paste0(folder,"compiled-selection.txt"),row.names=F,s
 # computation of differences between cohorts at atlas positions: hilbert-1.R
 # generation of Hilbert curve plots: genHilbertCurve-2.R
 
-# ===============================================================
-# Extracting k-stacks positions
-# ===============================================================
-
-# A bash script was used to preprocess individual patient files, extract 167bp fragments from each file, merge all 167bp fragments and extract k-stacked fragments.
-# This code was the following
-
-#!/bin/bash
-
-# list all individual patient files
-cd cristiano-data-2019
-for f in *.tsv;
-do
-        list_files1+=($f)
-done
-
-# for each file extract 167bp fragments with quality score > 30, and keep only those on chromosomes 1 to 22 and chromosomes X,Y (no contigs)
-for ((f=0; f<${#list_files1[@]}; f++))
-do
-	echo "${list_files1[f]}"
-        awk -v len=167 'BEGIN {OFS="\t"} ($3 - $2 == len) && ($4 > 30) {print}' "${list_files1[f]}" > "cris-output/${list_files1[f]%.*}_167_frags.bed"
-	awk 'BEGIN{OFS="\t"} {sub(/^chr/, "", $1)} ($1 ~ /^[1-9][0-9]*$|^X$|^Y$/) {print}' "cris-output/${list_files1[f]%.*}_167_frags.bed" > "cris-output/${list_files1[f]%.*}_167_frags_2.bed"
-	rm "cris-output/${list_files1[f]%.*}_167_frags.bed"
-done
-
-# concatenate all 167bp fragments into one file
-cd cris-output
-bedops --everything *167_frags_2.bed* > concat_all_167_score.bed
-
-# remove fragments at centromeres and on chromosome Y and sort them
-bedtools intersect -a concat_all_167_score.bed -b centromere-region.bed -v > concat_all_167_score_no_centro.bed
-awk 'BEGIN{OFS="\t"} $1!="Y" {print}' concat_all_167_score_no_centro.bed > concat_all_167_score_no_centro_noY.bed
-sort -k1,1 -k2,2n concat_all_167_score_no_centro_noY.bed > concat_all_167_score_no_centro_noY_sort.bed
-
-# count fragments with identical positions
-bedtools intersect -a concat_all_167_score_no_centro_noY_sort.bed -b concat_all_167_score_no_centro_noY_sort.bed -sorted -f 0.999 -c > overlapping_all_167.bed
-
-# create files with k-stacked fragments with unique coordinates for k in 1 to 20, and retrieve their sequences from reference genome hg38
-for i in $(seq 1 20);
-do
-python merge_frags_empils.py overlapping_all_167 unique_nucleos_all_167_"$i"x.bed $i
-bedtools getfasta -fi Homo_sapiens.GRCh38.dna.primary_assembly.fa -bed unique_nucleos_all_267_"$i"x.bed > unique_nucleos_all_267_"$i"x.fa.out
-done
-
-# =======================================================================
-# Compute log-odd frequencies of nucleotides in k-stacks positions
-# =======================================================================
-
-# Generating randomized k-stacked positions : random_sequences.py
-# For computing nucleotides (and dinucleotides) positional frequencies and log-odds : nucleotides_signature.py
-# For plotting positional log-odds : nucleo_frequency_plot.R
-
 # =======================================================================
 # Analysis of codons frequencies
 # =======================================================================
@@ -697,12 +626,6 @@ done
 # - retrieve positions sequences and divide them into 3bp sequences
 # - computes codons frequencies and log-odds
 # codons_heatmap.R for visualisation of log-odds
-
-# =======================================================================
-# Analysis of end motifs frequencies
-# =======================================================================
-
-# Compute end motifs frequencies in all individual files : utils_end_motifs.py
 
 # =======================================================================
 # Genome annotations

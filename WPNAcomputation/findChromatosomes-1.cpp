@@ -117,8 +117,14 @@ void findChromatosomes(vector<unsigned int>& pos, vector<double>& sc, vector<dou
     }
 
     // candidate coverage peaks
-    if (verbose)
+    if (verbose){
         cerr << "Finding candidate peaks ...\n";
+		int nWPSmax = 0;
+		for (unsigned int i = 1; i < ex_sw.size()-1; i++)
+			if (ex_sw[i].max)
+				nWPSmax++;
+		cerr << "  #WPS local maxima: " << nWPSmax << endl;
+	}
     ofstream outCand(baseName + "_candidates_cover.txt");
     outCand << "position\theight\tnorm_coverage\tcoverage\tdiameter\n";
     vector<unsigned int> cand;

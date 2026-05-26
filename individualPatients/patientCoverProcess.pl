@@ -12,7 +12,10 @@ my $outFolder = 'indiv-profiles';
 
 my $nRLCover = 100;
 my $atlasFile = "cris-healthy-wps-peaks/compiled-selection.txt";
+my $matlasFile = "cris-healthy-wps-peaks/midpoint-selection.txt";
+my $ratlasFile = "cris-healthy-wps-peaks/random-selection.txt";
 my $centroFile = "$baseExec/centromere-region.txt";
+my $lastChr = 23; # by default, chrY not included
 
 my $nproc = 1;
 
@@ -23,6 +26,9 @@ my $testMode;
 my $synchro;
 my $withStartEnd;
 my $chosenChr;
+my $withY;
+my $withMidPoints;
+my $withRandom;
 
 if (!GetOptions('help' => \$help,
                 'h' => \$help,
@@ -30,9 +36,14 @@ if (!GetOptions('help' => \$help,
                 'force' => \$force,
                 'synchro' => \$synchro,
                 'nodeltmp' => \$noDeleteTmp,
+				'withy' => \$withY,
+				'withmidpoints' => \$withMidPoints,
+				'withrandom' => \$withRandom,
                 'nproc=i' => \$nproc,
                 'outfolder=s' => \$outFolder,
                 'atlas=s' => \$atlasFile,
+                'midatlas=s' => \$matlasFile,
+                'randatlas=s' => \$ratlasFile,
                 'chrsizes=s' => \$chrSizeFile,
                 'centro=s' => \$centroFile,
                 'exec=s' => \$baseExec
@@ -48,6 +59,9 @@ if (!GetOptions('help' => \$help,
     -force               force processing even if output files exist already
     -nodeltmp            does not delete files created at intermediary steps
     -synchro             all patient processings can start at the same time, default is every 3 min to limit file access conflicts
+	-withy				 atlas contains chrY peaks
+	-withmidpoints       also use the mid-point atlas ($matlasFile)
+	-withrandom          also use the random atlas ($ratlasFile)
     --nproc=i            number of processors (default $nproc)
     --outfolder=s	     provide an alternative output folder name (default '$outFolder')
     --exec=s             folder in which are located the executables (default '$baseExec')
@@ -62,6 +76,7 @@ if (!GetOptions('help' => \$help,
 my $coverageExec = "$baseExec/coverage";
 my $smoothExec = "$baseExec/sgfilter";
 my $readCoverExec = "$baseExec/readCoverage";
+$lastChr = 24 if (defined($withY));
 
 my $failedCommands;
 
@@ -92,6 +107,7 @@ while(<C>){
   my @line = split(/\s+/);
   push(@centro,[$line[0],$line[1],$line[2]]); # chr start stop
 }
+push(@centro,["Y",0,0]) if (defined($withY)); # add chrY as 24th chromosome to define its name
 close(C);
 
 
@@ -144,7 +160,7 @@ for (my $fork = 0; $fork < $nproc; $fork++){
           executeCommand($cmd);
           
           # smooth raw coverage
-          for (my $k = 0; $k < 23; $k++){
+          for (my $k = 0; $k < $lastChr; $k++){
             my $chr = $centro[$k]->[0];
             $cmd = "$smoothExec -sx 0.0 -i $folder/chr$chr"."_coverage.tsv -o $folder/smooth-chr$chr"."_cover_no_norm.txt -nl $nRLCover -nr $nRLCover -m 4";
             executeCommand($cmd);
@@ -153,6 +169,16 @@ for (my $fork = 0; $fork < $nproc; $fork++){
           # extract coverage at atlas locations
           $cmd = "$readCoverExec -atlas $atlasFile -coverfolder $folder/ -suffix _cover_no_norm.txt > $folder/$sample-peak-coverage.txt";
           executeCommand($cmd);
+
+          # extract coverage at randomized atlases locations
+		  if (defined($withMidPoints)){
+            $cmd = "$readCoverExec -atlas $matlasFile -coverfolder $folder/ -suffix _cover_no_norm.txt > $folder/$sample-midpoint-peak-coverage.txt";
+            executeCommand($cmd);
+		  }
+		  if (defined($withRandom)){
+            $cmd = "$readCoverExec -atlas $ratlasFile -coverfolder $folder/ -suffix _cover_no_norm.txt > $folder/$sample-random-peak-coverage.txt";
+            executeCommand($cmd);
+		  }
 
           # clean up
           unless(defined($noDeleteTmp)){

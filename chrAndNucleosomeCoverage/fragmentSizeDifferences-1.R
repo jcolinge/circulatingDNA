@@ -107,6 +107,28 @@ legend(x="bottomright",legend=c("High","Low","High mono","Low mono"),lty=1,col=c
 dev.off()
 
 
+# Y chromosome, from chrY-high/low-coverage-wps-peaks-short ---------------------
+
+frag.in <- fread("../atlas/cover-fraglen-Y/cris-high_stable.txt",data.table=F)
+frag.rndin <- fread("../atlas/cover-fraglen-Y/cris-high_rndstable.txt",data.table=F)
+m <- data.matrix(cbind(frag.rndin[2],frag.in[2]))[1:300,]
+nm <- sweep(m,2,colSums(m),"/")
+lofrag.in <- fread("../atlas/cover-fraglen-Y/cris-low_stable.txt",data.table=F)
+lofrag.rndin <- fread("../atlas/cover-fraglen-Y/cris-low_rndstable.txt",data.table=F)
+lom <- data.matrix(cbind(lofrag.rndin[2],lofrag.in[2]))[1:300,]
+lonm <- sweep(lom,2,colSums(lom),"/")
+
+pdf("../paper/figures/cris-hilo-coverage-frag-Y.pdf",width=4,height=3.5,pointsize=8,useDingbats=F)
+par(mgp=c(2,0.7,0),mar=c(4,3,3,2))
+plot(x=range,y=nm[range,2]-nm[range,1],type="n",xlab="Fragment length (bp)",ylab="Density difference")
+abline(h=0,col="gray")
+abline(v=167,col="orange",lty=1)
+lines(x=range,y=nm[range,2]-nm[range,1],col="darkcyan")
+lines(x=range,y=lonm[range,2]-lonm[range,1],type="l",col="gray40")
+legend(x="topleft",legend=c("High vs. rnd","Low vs. rnd"),lty=1,col=c("darkcyan","gray40"))
+dev.off()
+
+
 # sun --------------------------------------------------------------------------
 
 range <- 60:250

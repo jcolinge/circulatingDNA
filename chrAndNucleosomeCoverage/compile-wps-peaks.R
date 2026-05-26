@@ -26,6 +26,42 @@ for (c in names(atlas))
 fwrite(compiled.atlas,file=paste0(folder,"compiled-selection.txt"),row.names=F,sep="\t",quote=F)
 
 
+# random and mid-point atlases to compare performance in cancer detection ===================
+
+compiled.atlas <- fread(paste0(folder,"compiled-selection.txt"),data.table=F)
+mpos <- trunc(0.5*(compiled.atlas$position[-1]+compiled.atlas$position[-nrow(compiled.atlas)]))
+schr <- table(compiled.atlas$chr)
+matlas <- compiled.atlas
+matlas$position <- c(mpos,NA)
+schr <- schr[c(order(as.numeric(names(schr)[-length(schr)])),length(schr))]
+bad <- cumsum(schr)
+schr
+matlas <- matlas[-bad,] # removes mid positions across two chromosomes and the last one
+table(matlas$chr)
+fwrite(matlas,file=paste0(folder,"midpoint-selection.txt"),row.names=F,sep="\t",quote=F,scipen=100)
+
+centro <- fread("../atlas/centromere-region.txt",data.table=F)
+chr.size <- fread("../atlas/pos_chromosomes.tsv",data.table=F)
+ratlas <- compiled.atlas
+rpos <- NULL
+for (i in 1:23){
+  chr <- ifelse(i<23,i,"X")
+  if (i %in% c(1:12,16:20,23)){
+    nbefore <- sum(ratlas$position[ratlas$chr==chr]<centro$centro_start[i])
+    nafter <- sum(ratlas$position[ratlas$chr==chr]>centro$centro_end[i])
+    rpos <- c(rpos,
+              sort(runif(nbefore,1,centro$centro_start[i])),
+              sort(runif(nafter,centro$centro_end[i],chr.size[i,3])))
+  }
+  else{
+    nafter <- sum(ratlas$chr==chr)
+    rpos <- c(rpos, sort(runif(nafter,centro$centro_end[i],chr.size[i,3])))
+  }
+}
+ratlas$position <- trunc(rpos)
+fwrite(ratlas,file=paste0(folder,"random-selection.txt"),row.names=F,sep="\t",quote=F,scipen=100)
+
+
 # peak diameter distribution ==========================================
 
 compiled.atlas <- fread(paste0(folder,"compiled-selection.txt"),data.table=F)
@@ -37,6 +73,20 @@ plot(d,xlab="Diameter (bp)",main="")
 abline(v=c(126,147,200,300,383),col=c("gray40","orange","gray40","orange","gray40"),lty=c(2,2,2,2,2))
 dev.off()
 
+# Y chromosome
+y.atlas <- fread(paste0(folder,"compiled-selection-with-Y.txt"),data.table=F)
+y.atlas <- y.atlas[y.atlas$chr=="Y",]
+summary(y.atlas$diameter)
+d <- density(y.atlas$diameter[y.atlas$diameter<800],from=0)
+pdf("../paper/figures/diameter-density-Y.pdf",width=3.5,height=3.5,pointsize=8,useDingbats=F)
+par(mgp=c(2,0.7,0),mar=c(4,3,3,2))
+plot(d,xlab="Diameter (bp)",main="")
+# abline(v=c(126,147,200,300,383),col=c("gray40","orange","gray40","orange","gray40"),lty=c(2,2,2,2,2))
+dev.off()
+thres.diam <- 300
+low.diam <- 147
+sum(y.atlas$diameter<thres.diam & y.atlas$diameter>=low.diam)
+
 
 # number of peaks and their cirDNA coverage ==========================
 
@@ -46,7 +96,7 @@ thres.diam <- 300
 low.diam <- 147
 cover <- list()
 cover.short <- list()
-for (f in flist){
+for (f in flist[1:41]){
   chr <- gsub("chr","",strsplit(f,"_")[[1]][1])
   sel <- fread(paste0(folder,f),data.table=F)
   cover[[chr]] <- c(cover[[chr]],sel$coverage)
@@ -66,11 +116,29 @@ par(mgp=c(2,0.7,0),mar=c(4,3,3,2))
 plot(num.peaks,type="h",ylim=c(0,max(num.peaks)))
 lines(num.peaks,type="p",pch=21,bg="burlywood2")
 dev.off()
+
 num.peaks.short <- sapply(cover.short,length)
 pdf("../paper/figures/num-peaks-short.pdf",height=1.75,width=1.9,useDingbats=F,pointsize=7) # Figure 2D
 par(mgp=c(2,0.7,0),mar=c(4,3,3,2))
 plot(num.peaks.short,type="h",ylim=c(0,max(num.peaks.short)))
 lines(num.peaks.short,type="p",pch=21,bg="burlywood2")
+dev.off()
+
+centro.size <- centro$centro_end-centro$centro_start
+centro.size[c(13:15,21,22)] <- centro$centro_end[c(13:15,21,22)]
+actual.chr.sizes <- chr.size[1:23,3]-centro.size
+norm.num.peaks <- num.peaks/actual.chr.sizes
+pdf("../paper/figures/num-peaks-normalized.pdf",height=2,width=3,useDingbats=F,pointsize=7)
+par(mgp=c(2,0.7,0),mar=c(4,3,3,2))
+plot(norm.num.peaks,type="h",ylim=c(0,max(norm.num.peaks)),ylab="# Nucleosomes / Chromosome size",xlab="Chromosome")
+lines(norm.num.peaks,type="p",pch=21,bg="burlywood2")
+dev.off()
+
+norm.num.peaks.short <- num.peaks.short/actual.chr.sizes
+pdf("../paper/figures/num-peaks-short-normalized.pdf",height=2,width=3,useDingbats=F,pointsize=7)
+par(mgp=c(2,0.7,0),mar=c(4,3,3,2))
+plot(norm.num.peaks.short,type="h",ylim=c(0,max(norm.num.peaks.short)),ylab="# Nucleosomes / Chromosome size",xlab="Chromosome")
+lines(norm.num.peaks.short,type="p",pch=21,bg="burlywood2")
 dev.off()
 
 pdf("../paper/figures/peak-coverage.pdf",height=1.7,width=1.7,useDingbats=F,pointsize=7)
@@ -148,6 +216,297 @@ for (f in flist){
 }
 fwrite(high.cov,file="cover-fraglen/high-coverage-wps-peaks-long.txt",sep="\t",quote=F,row.names=F)
 fwrite(low.cov,file="cover-fraglen/low-coverage-wps-peaks-long.txt",sep="\t",quote=F,row.names=F)
+
+# limited to Y chromosome -----
+thres <- 2000
+flistY <- list.files(folder,"chrY.+selection_cover")
+high.cov <- NULL
+low.cov <- NULL
+for (f in flistY){
+  chr <- gsub("chr","",strsplit(f,"_")[[1]][1])
+  sel <- fread(paste0(folder,f),data.table=F)
+  sel <- sel[sel$coverage<thres & sel$diameter<thres.diam & sel$diameter>=low.diam,]
+  high <- quantile(sel$coverage,0.8)
+  low <- quantile(sel$coverage,0.2)
+  pos <- sel$position[sel$coverage>=high]
+  high.cov <- rbind(high.cov,data.frame(chr=rep(chr,length(pos)),position=pos))
+  pos <- sel$position[sel$coverage<=low]
+  low.cov <- rbind(low.cov,data.frame(chr=rep(chr,length(pos)),position=pos))
+}
+fwrite(high.cov,file="../atlas/cover-fraglen/chrY-high-coverage-wps-peaks-short.txt",sep="\t",quote=F,row.names=F)
+fwrite(low.cov,file="../atlas/cover-fraglen/chrY-low-coverage-wps-peaks-short.txt",sep="\t",quote=F,row.names=F)
+
+
+# ===============================================================================
+# distances between atlases
+# ===============================================================================
+
+.libPaths(new=.Library)
+library(data.table)
+low.diam <- 147
+thres.diam <- 300
+
+# cris healthy
+folder <- "../atlas/cris-healthy-wps-peaks/"
+flist <- list.files(folder,"selection_cover")
+ch.pos <- list()
+for (f in flist[1:41]){
+  chr <- gsub("chr","",strsplit(f,"_")[[1]][1])
+  sel <- fread(paste0(folder,f),data.table=F)
+  good <- (sel$diameter>=low.diam) & (sel$diameter<thres.diam)
+  ch.pos[[chr]] <- c(ch.pos[[chr]],sel$position[good])
+}
+o <- c(order(as.numeric(names(ch.pos)[-length(ch.pos)])),23)
+names(ch.pos)[o]
+ch.pos <- ch.pos[o]
+for (c in names(ch.pos))
+  ch.pos[[c]] <- sort(ch.pos[[c]])
+
+# cris breast
+folder <- "../atlas/cris-breast-wps-peaks/"
+flist <- list.files(folder,"selection_cover")
+breast.pos <- list()
+for (f in flist){
+  chr <- gsub("chr","",strsplit(f,"_")[[1]][1])
+  sel <- fread(paste0(folder,f),data.table=F)
+  good <- (sel$diameter>=low.diam) & (sel$diameter<thres.diam)
+  breast.pos[[chr]] <- c(breast.pos[[chr]],sel$position[good])
+}
+o <- c(order(as.numeric(names(breast.pos)[-length(breast.pos)])),23)
+names(breast.pos)[o]
+breast.pos <- breast.pos[o]
+for (c in names(breast.pos))
+  breast.pos[[c]] <- sort(breast.pos[[c]])
+
+# jiang healthy
+folder <- "../atlas/jiang-healthy-wps-peaks/"
+flist <- list.files(folder,"selection_cover")
+jh.pos <- list()
+for (f in flist){
+  chr <- gsub("chr","",strsplit(f,"_")[[1]][1])
+  sel <- fread(paste0(folder,f),data.table=F)
+  good <- (sel$diameter>=low.diam) & (sel$diameter<thres.diam)
+  jh.pos[[chr]] <- c(jh.pos[[chr]],sel$position[good])
+}
+o <- c(order(as.numeric(names(jh.pos)[-length(jh.pos)])),23)
+names(jh.pos)[o]
+jh.pos <- jh.pos[o]
+for (c in names(jh.pos))
+  jh.pos[[c]] <- sort(jh.pos[[c]])
+
+# adal breast
+folder <- "../atlas/adal-breast-wps-peaks/"
+flist <- list.files(folder,"selection_cover")
+abreast.pos <- list()
+for (f in flist){
+  chr <- gsub("chr","",strsplit(f,"_")[[1]][1])
+  sel <- fread(paste0(folder,f),data.table=F)
+  good <- (sel$diameter>=low.diam) & (sel$diameter<thres.diam)
+  abreast.pos[[chr]] <- c(abreast.pos[[chr]],sel$position[good])
+}
+o <- c(order(as.numeric(names(abreast.pos)[-length(abreast.pos)])),23)
+names(abreast.pos)[o]
+abreast.pos <- abreast.pos[o]
+for (c in names(abreast.pos))
+  abreast.pos[[c]] <- sort(abreast.pos[[c]])
+
+# adal prostate
+folder <- "../atlas/adal-prostate-wps-peaks/"
+flist <- list.files(folder,"selection_cover")
+aprost.pos <- list()
+for (f in flist){
+  chr <- gsub("chr","",strsplit(f,"_")[[1]][1])
+  sel <- fread(paste0(folder,f),data.table=F)
+  good <- (sel$diameter>=low.diam) & (sel$diameter<thres.diam)
+  aprost.pos[[chr]] <- c(aprost.pos[[chr]],sel$position[good])
+}
+o <- c(order(as.numeric(names(aprost.pos)[-length(aprost.pos)])),23)
+names(aprost.pos)[o]
+aprost.pos <- aprost.pos[o]
+for (c in names(aprost.pos))
+  aprost.pos[[c]] <- sort(aprost.pos[[c]])
+
+# basic stats ---------------------------
+
+numPeaks <- function(pos){
+  sum(sapply(pos, length))
+}
+numPeaks(ch.pos)
+numPeaks(breast.pos)
+numPeaks(jh.pos)
+numPeaks(abreast.pos)
+numPeaks(aprost.pos)
+# > numPeaks(ch.pos)
+# [1] 4971768
+# > numPeaks(breast.pos)
+# [1] 4637752
+# > numPeaks(jh.pos)
+# [1] 5946475
+# > numPeaks(abreast.pos)
+# [1] 5225795
+# > numPeaks(aprost.pos)
+# [1] 5170583
+
+# distances -------------------
+
+distpeaks <- function(pos1, pos2, max.dist=40){
+  distances <- NULL
+  for (chr in names(pos1)){
+    cat("Doing ",chr,"\n")
+    p1 <- pos1[[chr]]
+    p2 <- pos2[[chr]]
+    start <- 1
+    for (i in 1:length(p2)){
+      j <- start
+      while ((p1[j] < p2[i]-max.dist) && (j < length(p1)))
+        j <- j+1
+      start <- j
+      if (j < length(p1))
+        while (p1[j] <= p2[i]+max.dist){
+          if ((abs(p2[i]-p1[j]) <= max.dist) && (j < length(p1))){
+            distances[length(distances)+1] <- p2[i]-p1[j]
+            break
+          }
+          j <- j+1
+        }
+    }
+  }
+  distances
+}
+
+
+dist.ch.breast <- distpeaks(ch.pos,breast.pos,max.dist=80)
+length(dist.ch.breast)
+summary(dist.ch.breast)
+save(dist.ch.breast,file="atlas-distances/distances-atlas-ch-breast.rdta")
+
+dist.ch.jh <- distpeaks(ch.pos,jh.pos,max.dist=80)
+length(dist.ch.jh)
+summary(dist.ch.jh)
+save(dist.ch.jh,file="atlas-distances/distances-atlas-ch-jh.rdta")
+
+dist.breast.abreast <- distpeaks(breast.pos,abreast.pos,max.dist=80)
+length(dist.breast.abreast)
+summary(dist.breast.abreast)
+save(dist.breast.abreast,file="atlas-distances/distances-atlas-breast-abreast.rdta")
+
+dist.aprost.abreast <- distpeaks(aprost.pos,abreast.pos,max.dist=80)
+length(dist.aprost.abreast)
+summary(dist.aprost.abreast)
+save(dist.aprost.abreast,file="atlas-distances/distances-atlas-aprost-abreast.rdta")
+
+length(dist.ch.jh)
+length(dist.ch.breast)
+length(dist.breast.abreast)
+length(dist.aprost.abreast)
+
+# max.dist=80 :
+# > length(dist.ch.jh)
+# [1] 2361539
+# > length(dist.ch.breast)
+# [1] 2869974
+# > length(dist.breast.abreast)
+# [1] 2198759
+# > length(dist.aprost.abreast)
+# [1] 2690225
+
+dist.ch.breast <- distpeaks(ch.pos,breast.pos,max.dist=120)
+length(dist.ch.breast)
+summary(dist.ch.breast)
+save(dist.ch.breast,file="atlas-distances/distances-atlas-ch-breast-120.rdta")
+
+dist.ch.jh <- distpeaks(ch.pos,jh.pos,max.dist=120)
+length(dist.ch.jh)
+summary(dist.ch.jh)
+save(dist.ch.jh,file="atlas-distances/distances-atlas-ch-jh-120.rdta")
+
+dist.breast.abreast <- distpeaks(breast.pos,abreast.pos,max.dist=120)
+length(dist.breast.abreast)
+summary(dist.breast.abreast)
+save(dist.breast.abreast,file="atlas-distances/distances-atlas-breast-abreast-120.rdta")
+
+dist.aprost.abreast <- distpeaks(aprost.pos,abreast.pos,max.dist=120)
+length(dist.aprost.abreast)
+summary(dist.aprost.abreast)
+save(dist.aprost.abreast,file="atlas-distances/distances-atlas-aprost-abreast-120.rdta")
+
+length(dist.ch.jh)
+length(dist.ch.breast)
+length(dist.breast.abreast)
+length(dist.aprost.abreast)
+
+# max.dist=120
+# > length(dist.ch.jh)
+# [1] 2511908
+# > length(dist.ch.breast)
+# [1] 2942271
+# > length(dist.breast.abreast)
+# [1] 2319854
+# > length(dist.aprost.abreast)
+# [1] 2803902
+
+load("atlas-distances/distances-atlas-ch-jh.rdta")
+load("atlas-distances/distances-atlas-ch-breast.rdta")
+load("atlas-distances/distances-atlas-breast-abreast.rdta")
+load("atlas-distances/distances-atlas-aprost-abreast.rdta")
+
+pdf("atlas-distances/dist-80.pdf",height=3,width=4.5,pointsize=8,useDingbats=F)
+par(mgp=c(2,0.7,0),mar=c(4,3,3,2))
+plot(density(dist.ch.jh),main="",xlab="Position delta (bp)",type="n",ylim=c(0,0.09))
+abline(v=0)
+lines(density(dist.ch.jh,from=-80,to=80),col="black")
+lines(density(dist.ch.breast,from=-80,to=80),col="blue")
+lines(density(dist.breast.abreast,from=-80,to=80),col="orange")
+lines(density(dist.aprost.abreast,from=-80,to=80),col="violet")
+legend(x="topleft",legend=c("Cris HI / Jiang HI","Cris HI / BC",
+                            "Cris BC / Adal. BC","Adal BC / PC"),lty=1,
+       col=c("black","blue","orange","violet"))
+dev.off()
+
+load("atlas-distances/distances-atlas-ch-jh-120.rdta")
+load("atlas-distances/distances-atlas-ch-breast-120.rdta")
+load("atlas-distances/distances-atlas-breast-abreast-120.rdta")
+load("atlas-distances/distances-atlas-aprost-abreast-120.rdta")
+
+pdf("atlas-distances/dist-120.pdf",height=2.75,width=4,pointsize=8,useDingbats=F)
+par(mgp=c(2,0.7,0),mar=c(4,3,3,2))
+plot(density(dist.ch.jh),main="",xlab="Position delta (bp)",type="n",ylim=c(0,0.09))
+abline(v=0)
+lines(density(dist.ch.breast,from=-120,to=120),col="blue")
+lines(density(dist.breast.abreast,from=-120,to=120),col="orange")
+lines(density(dist.aprost.abreast,from=-120,to=120),col="red")
+lines(density(dist.ch.jh,from=-120,to=120),col="black")
+legend(x="topleft",legend=c("Cris HI / Jiang HI","Cris HI / BC",
+                            "Cris BC / Adal. BC","Adal BC / PC"),lty=1,
+       col=c("black","blue","orange","red"))
+dev.off()
+
+
+# all trimodal diameter distributions ------------------------------
+
+compiled.atlas <- fread("cris-healthy-wps-peaks/compiled-selection.txt",data.table=F)
+d <- density(compiled.atlas$diameter[compiled.atlas$diameter<800],from=0)
+bc.compiled.atlas <- fread("cris-breast-wps-peaks/breast-compiled-selection.txt",data.table=F)
+bc.d <- density(bc.compiled.atlas$diameter[bc.compiled.atlas$diameter<800],from=0)
+jh.compiled.atlas <- fread("jiang-healthy-wps-peaks/compiled-selection.txt",data.table=F)
+jh.d <- density(jh.compiled.atlas$diameter[jh.compiled.atlas$diameter<800],from=0)
+abc.compiled.atlas <- fread("adal-breast-wps-peaks/adal-breast-compiled-selection.txt",data.table=F)
+abc.d <- density(abc.compiled.atlas$diameter[abc.compiled.atlas$diameter<800],from=0)
+apc.compiled.atlas <- fread("adal-prostate-wps-peaks/adal-prostate-compiled-selection.txt",data.table=F)
+apc.d <- density(apc.compiled.atlas$diameter[apc.compiled.atlas$diameter<800],from=0)
+pdf("atlas-distances/diam-distrib.pdf",width=2.8,height=2.5,pointsize=7,useDingbats=F) # Figure 2C
+par(mgp=c(2,0.7,0),mar=c(4,3,3,2))
+plot(d,xlab="Peak width (bp)",main="",ylim=c(0,0.0065))
+lines(jh.d,col="darkviolet")
+lines(bc.d,col="blue")
+lines(abc.d,col="orange")
+lines(apc.d,col="red")
+abline(v=c(126,147,200,300,383),col=c("gray40","orange","gray40","orange","gray40"),lty=c(2,2,2,2,2))
+legend(x="topright",legend=c("Cris HI","Jiang HI","Cris BC","Adal. BC","Adal. PC"),
+       col=c("black","darkviolet","blue","orange","red"),lty=1)
+dev.off()
+
+
 
 
 # =================================================================================
@@ -521,7 +880,6 @@ barplot(rbind(high_rate_nuc, low_rate_nuc), beside=T,names.arg = GF, col=c("ligh
 legend(x = "topright", pch=22, bty="n",
        fill= c("lightpink","lightskyblue"),text.col = "black", cex=0.8,
        legend=c( "High coverage","Low coverage")) 
-
 dev.off()
 
 
@@ -532,7 +890,6 @@ barplot(rbind(low_rate_nuc,high_rate_nuc)[,sel],beside=T,names.arg=GF[sel],col=r
         xlab="Average number of nucleosome / zone",horiz=T,space=c(0,0.5))
 legend(x="topright",pch=22,bty="n",fill=c("lightpink","lightskyblue"),text.col="black",
        legend=c("High coverage","Low coverage")) 
-
 dev.off()
 
 
@@ -548,7 +905,6 @@ barplot(rbind(stack_8_rate, stack_rand_rate), beside=T,names.arg = GF, col=c("li
 legend(x = "topright", pch=22, bty="n",
        fill= c("lightpink","lightskyblue"),text.col = "black", cex=0.8,
        legend=c( "High coverage","Low coverage")) 
-
 dev.off()
 
 sel <- rev(c(3,4,9,10,13,15,16))
@@ -558,5 +914,47 @@ barplot(rbind(stack_rand_rate, stack_8_rate)[,sel],beside=T,names.arg=GF[sel],co
         xlab="Average number of nucleosome / zone",horiz=T,space=c(0,0.5))
 legend(x="topright",pch=22,bty="n",fill=c("lightpink","lightskyblue"),text.col="black",
        legend=c("High coverage","Low coverage")) 
+dev.off()
 
+# From all the 9.3M peaks ----------
+
+cris.rate.gen.regions <- fread("genome_annot_all_peaks.txt",data.table=F)
+high_rate_nuc <- cris.rate.gen.regions$high
+low_rate_nuc <- cris.rate.gen.regions$low
+GF<-c("Gaps & \n Artifacts","Quiescent","Hetero\nchromatin","Polycomb \n repressed","Acetylations","Weak \n enhancers","Enhancers", "Transcribed \n & enhancer","Weak \n transcription","Transcription","Exon & \n Transcription","ZNF genes","DNase \n hypersensitivity","Bivalent \n states","Flanking \n promoters",'Flanking \n TSS')
+
+sel <- rev(c(3,4,9,10,13,15,16))
+pdf("../paper/figures/barplot_high_low_selected_genomic_features_all9.3M-peaks.pdf",height=3,width=2.5,pointsize=7,useDingbats=F) # Figure 2G
+par(las=2,mar=c(5,8,4,2)+0.1)
+barplot(rbind(low_rate_nuc,high_rate_nuc)[,sel],beside=T,names.arg=GF[sel],col=rev(c("lightpink","lightskyblue")),
+        xlab="Average number of nucleosome / zone",horiz=T,space=c(0,0.5))
+legend(x="topright",pch=22,bty="n",fill=c("lightpink","lightskyblue"),text.col="black",
+       legend=c("High coverage","Low coverage")) 
+dev.off()
+
+
+# From Jiang healthy atlas ----------
+
+cris.rate.gen.regions <- fread("high_low_regulatory_regions.csv",data.table=F)
+jiang.rate.gen.regions <- fread("genome_annot_jiang.txt",data.table=F)
+high_rate_nuc <- jiang.rate.gen.regions$high
+low_rate_nuc <- jiang.rate.gen.regions$low
+
+pdf("../paper/figures/barplot_high_low_genomic_features_jiang.pdf",height=4,width=6,pointsize=10,useDingbats=F)
+par(las=2)
+GF<-c("Gaps & \n Artifacts","Quiescent","Hetero\nchromatin","Polycomb \n repressed","Acetylations","Weak \n enhancers","Enhancers", "Transcribed \n & enhancer","Weak \n transcription","Transcription","Exon & \n Transcription","ZNF genes","DNase \n hypersensitivity","Bivalent \n states","Flanking \n promoters",'Flanking \n TSS')
+barplot(rbind(high_rate_nuc, low_rate_nuc), beside=T,names.arg = GF, col=c("lightpink","lightskyblue"), cex.names=0.8,
+        ylab="Average number of nucleosome / zone")
+legend(x = "topright", pch=22, bty="n",
+       fill= c("lightpink","lightskyblue"),text.col = "black", cex=0.8,
+       legend=c( "High coverage","Low coverage")) 
+dev.off()
+
+sel <- rev(c(3,4,9,10,13,15,16))
+pdf("../paper/figures/barplot_high_low_selected_genomic_features_jiang.pdf",height=3,width=2.5,pointsize=7,useDingbats=F) # Figure 2G
+par(las=2,mar=c(5,8,4,2)+0.1)
+barplot(rbind(low_rate_nuc,high_rate_nuc)[,sel],beside=T,names.arg=GF[sel],col=rev(c("lightpink","lightskyblue")),
+        xlab="Average number of nucleosome / zone",horiz=T,space=c(0,0.5))
+legend(x="topright",pch=22,bty="n",fill=c("lightpink","lightskyblue"),text.col="black",
+       legend=c("High coverage","Low coverage")) 
 dev.off()
