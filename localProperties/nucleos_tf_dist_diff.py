@@ -29,7 +29,7 @@ def parallel_tf_cov(tf_file):
 
 
     dist_df = pd.DataFrame({'dist_distrib': dist_distrib, 'dist_distrib_2': dist_distrib_2})
-    output_file = f"result_TFs_diff_new_version/TF_{cancer}_diff/{os.path.basename(tf_file)}_dist_small.tsv"
+    output_file = f"result_TFs_diff_new_version/TF_{cancer}_diff/{os.path.basename(tf_file)}_dist.tsv"
     dist_df.to_csv(output_file, index=False)
     
     print(f"Processed: {tf_file}")
@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
     cancers = ["crc", "gastric"]
     for cancer in cancers:
-        diff_peaks = f"/diff_peaks_sig_wilcox_healthy_{cancer}_proteins_all.csv"
+        diff_peaks = f"/diff_peaks_sig_wilcox_healthy_{cancer}_nucleos_all.csv"
         find_closest_tf(
             f"atlas/cris-{cancer}",
             "atlas/cris-healthy",
